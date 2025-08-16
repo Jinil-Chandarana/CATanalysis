@@ -4,8 +4,10 @@ import 'package:catalyst_app/models/study_session.dart';
 import 'package:catalyst_app/providers/session_provider.dart';
 import 'package:catalyst_app/screens/detail/daily_summary_screen.dart';
 import 'package:catalyst_app/screens/detail/section_detail_screen.dart';
+import 'package:catalyst_app/screens/insights/activity_insights_screen.dart';
 import 'package:catalyst_app/screens/logging/log_session_screen.dart';
-import 'package:catalyst_app/theme/app_colors.dart'; // <-- Import our new colors
+import 'package:catalyst_app/screens/review/review_list_screen.dart';
+import 'package:catalyst_app/theme/app_colors.dart';
 import 'widgets/subject_card.dart';
 import 'widgets/todays_progress_card.dart';
 
@@ -26,6 +28,26 @@ class DashboardScreen extends ConsumerWidget {
         ),
         centerTitle: false,
         actions: [
+          // NEW BUTTONS
+          IconButton(
+            icon: const Icon(Icons.bar_chart, color: AppColors.secondaryText),
+            tooltip: 'Activity Insights',
+            onPressed: () {
+              Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => const ActivityInsightsScreen(),
+              ));
+            },
+          ),
+          IconButton(
+            icon:
+                const Icon(Icons.flag_outlined, color: AppColors.secondaryText),
+            tooltip: 'Review List',
+            onPressed: () {
+              Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => const ReviewListScreen(),
+              ));
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.history, color: AppColors.secondaryText),
             tooltip: 'Daily History',
@@ -52,23 +74,21 @@ class DashboardScreen extends ConsumerWidget {
           SubjectCard(
             subject: Subject.varc,
             progressText: '${varcSessions.length} sessions logged',
-            color:
-                AppColors.getSubjectColor(Subject.varc), // <-- Using new color
+            color: AppColors.getSubjectColor(Subject.varc),
             onTap: () => _navigateToDetail(context, Subject.varc),
           ),
           const SizedBox(height: 16),
           SubjectCard(
             subject: Subject.lrdi,
             progressText: '${lrdiSessions.length} sessions logged',
-            color:
-                AppColors.getSubjectColor(Subject.lrdi), // <-- Using new color
+            color: AppColors.getSubjectColor(Subject.lrdi),
             onTap: () => _navigateToDetail(context, Subject.lrdi),
           ),
           const SizedBox(height: 16),
           SubjectCard(
             subject: Subject.qa,
             progressText: '${qaSessions.length} sessions logged',
-            color: AppColors.getSubjectColor(Subject.qa), // <-- Using new color
+            color: AppColors.getSubjectColor(Subject.qa),
             onTap: () => _navigateToDetail(context, Subject.qa),
           ),
         ],
@@ -81,7 +101,7 @@ class DashboardScreen extends ConsumerWidget {
         },
         label: const Text('Log Session'),
         icon: const Icon(Icons.add),
-        backgroundColor: AppColors.accent, // <-- Using new color
+        backgroundColor: AppColors.accent,
         foregroundColor: Colors.white,
       ),
     );

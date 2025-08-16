@@ -5,21 +5,22 @@ import 'package:uuid/uuid.dart';
 import 'package:catalyst_app/models/study_session.dart';
 import 'package:catalyst_app/providers/session_provider.dart';
 
-// Helper classes for managing dynamic controllers
+// Helper classes now include difficulty
 class RcSetControllers {
   final TextEditingController questions = TextEditingController();
   final TextEditingController correct = TextEditingController();
+  Difficulty difficulty = Difficulty.medium;
 }
 
 class LrdiSetControllers {
   final TextEditingController questions = TextEditingController();
   final TextEditingController correct = TextEditingController();
   bool isSolo = false;
+  Difficulty difficulty = Difficulty.medium;
 }
 
 class SessionForm extends ConsumerStatefulWidget {
   final Subject subject;
-  // NEW: Receive start and end times instead of duration
   final DateTime startTime;
   final DateTime endTime;
 
@@ -37,27 +38,33 @@ class SessionForm extends ConsumerStatefulWidget {
 class _SessionFormState extends ConsumerState<SessionForm> {
   final _formKey = GlobalKey<FormState>();
 
-  // State for dynamic forms
+  // Controllers for VARC
   final List<RcSetControllers> _rcSets = [];
   final TextEditingController _vaAttemptedController = TextEditingController();
   final TextEditingController _vaCorrectController = TextEditingController();
 
+  // Controllers for LRDI
   final List<LrdiSetControllers> _lrdiSets = [];
 
+  // Controllers for QA
   final TextEditingController _qaAttemptedController = TextEditingController();
   final TextEditingController _qaCorrectController = TextEditingController();
+  final TextEditingController _qaTagsController = TextEditingController();
+
+  // Controllers for new global features
+  final TextEditingController _notesController = TextEditingController();
+  bool _isForReview = false;
 
   @override
   void initState() {
     super.initState();
-    // Add one empty set by default for convenience
     if (widget.subject == Subject.varc) _addRcSet();
     if (widget.subject == Subject.lrdi) _addLrdiSet();
   }
 
   @override
   void dispose() {
-    // Dispose all controllers to prevent memory leaks
+    // Dispose all controllers
     for (var set in _rcSets) {
       set.questions.dispose();
       set.correct.dispose();
@@ -70,6 +77,8 @@ class _SessionFormState extends ConsumerState<SessionForm> {
     }
     _qaAttemptedController.dispose();
     _qaCorrectController.dispose();
+    _qaTagsController.dispose();
+    _notesController.dispose();
     super.dispose();
   }
 
@@ -87,12 +96,14 @@ class _SessionFormState extends ConsumerState<SessionForm> {
       int getInt(TextEditingController controller) =>
           int.tryParse(controller.text) ?? 0;
 
+      // Save data based on subject
       switch (widget.subject) {
         case Subject.varc:
           metrics['rc_sets'] = _rcSets
               .map((c) => {
                     'questions': getInt(c.questions),
                     'correct': getInt(c.correct),
+                    'difficulty': c.difficulty.index, // Save difficulty
                   })
               .toList();
           metrics['va_attempted'] = getInt(_vaAttemptedController);
@@ -104,14 +115,25 @@ class _SessionFormState extends ConsumerState<SessionForm> {
                     'questions': getInt(c.questions),
                     'correct': getInt(c.correct),
                     'is_solo': c.isSolo,
+                    'difficulty': c.difficulty.index, // Save difficulty
                   })
               .toList();
           break;
         case Subject.qa:
           metrics['questionsAttempted'] = getInt(_qaAttemptedController);
           metrics['questionsCorrect'] = getInt(_qaCorrectController);
+          // Save tags
+          metrics['tags'] = _qaTagsController.text
+              .split(',')
+              .map((s) => s.trim())
+              .where((s) => s.isNotEmpty)
+              .toList();
           break;
       }
+
+      // Save global feature data
+      metrics['notes'] = _notesController.text;
+      metrics['is_for_review'] = _isForReview;
 
       final newSession = StudySession(
         id: const Uuid().v4(),
@@ -135,6 +157,8 @@ class _SessionFormState extends ConsumerState<SessionForm> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           ..._buildFormFields(),
+          const Divider(height: 40),
+          _buildGlobalFields(), // Notes and Review Flag
           const SizedBox(height: 24),
           ElevatedButton(
             onPressed: _saveSession,
@@ -161,7 +185,7 @@ class _SessionFormState extends ConsumerState<SessionForm> {
     }
   }
 
-  // --- VARC FORM BUILDER ---
+  // --- FORM BUILDERS ---
   List<Widget> _buildVarcForm() {
     return [
       Text("Reading Comprehension",
@@ -174,8 +198,11 @@ class _SessionFormState extends ConsumerState<SessionForm> {
           title: "RC Set ${index + 1}",
           onRemove: () => _removeRcSet(index),
           children: [
+            _buildDifficultySelector((newDifficulty) {
+              setState(() => controllers.difficulty = newDifficulty);
+            }, controllers.difficulty),
             _buildTextField(controllers.questions, 'Number of Questions'),
-            _buildTextField(controllers.correct, 'Number of Questions Correct'),
+            _buildTextField(controllers.correct, 'Number Correct'),
           ],
         );
       }).toList(),
@@ -190,7 +217,6 @@ class _SessionFormState extends ConsumerState<SessionForm> {
     ];
   }
 
-  // --- LRDI FORM BUILDER ---
   List<Widget> _buildLrdiForm() {
     return [
       Text("LRDI Sets", style: Theme.of(context).textTheme.titleLarge),
@@ -202,8 +228,11 @@ class _SessionFormState extends ConsumerState<SessionForm> {
           title: "LRDI Set ${index + 1}",
           onRemove: () => _removeLrdiSet(index),
           children: [
+            _buildDifficultySelector((newDifficulty) {
+              setState(() => controllers.difficulty = newDifficulty);
+            }, controllers.difficulty),
             _buildTextField(controllers.questions, 'Number of Questions'),
-            _buildTextField(controllers.correct, 'Number of Questions Correct'),
+            _buildTextField(controllers.correct, 'Number Correct'),
             StatefulBuilder(builder: (context, setCheckboxState) {
               return CheckboxListTile(
                 title: const Text("Solved on your own?"),
@@ -224,12 +253,33 @@ class _SessionFormState extends ConsumerState<SessionForm> {
     ];
   }
 
-  // --- QA FORM BUILDER ---
   List<Widget> _buildQaForm() {
     return [
       _buildTextField(_qaAttemptedController, 'Number of Questions Attempted'),
       _buildTextField(_qaCorrectController, 'Number of Questions Correct'),
+      _buildTextField(
+        _qaTagsController,
+        'Topics (e.g. Algebra, Geometry)',
+        isNumeric: false,
+      ),
     ];
+  }
+
+  Widget _buildGlobalFields() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildTextField(_notesController, 'Notes / Mistake Analysis (Optional)',
+            isNumeric: false, isRequired: false),
+        CheckboxListTile(
+          title: const Text("Flag for Later Review"),
+          value: _isForReview,
+          onChanged: (val) => setState(() => _isForReview = val!),
+          controlAffinity: ListTileControlAffinity.leading,
+          contentPadding: EdgeInsets.zero,
+        ),
+      ],
+    );
   }
 
   // --- REUSABLE WIDGETS ---
@@ -253,7 +303,7 @@ class _SessionFormState extends ConsumerState<SessionForm> {
                         .textTheme
                         .titleMedium
                         ?.copyWith(fontWeight: FontWeight.bold)),
-                if (index > 0) // Cannot remove the first set
+                if (index > 0)
                   IconButton(
                       icon: const Icon(Icons.close),
                       onPressed: onRemove,
@@ -268,19 +318,41 @@ class _SessionFormState extends ConsumerState<SessionForm> {
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String label) {
+  Widget _buildDifficultySelector(
+      Function(Difficulty) onSelectionChanged, Difficulty groupValue) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
+      child: SegmentedButton<Difficulty>(
+        segments: const [
+          ButtonSegment(value: Difficulty.easy, label: Text('Easy')),
+          ButtonSegment(value: Difficulty.medium, label: Text('Medium')),
+          ButtonSegment(value: Difficulty.hard, label: Text('Hard')),
+        ],
+        selected: {groupValue},
+        onSelectionChanged: (newSelection) {
+          onSelectionChanged(newSelection.first);
+        },
+      ),
+    );
+  }
+
+  Widget _buildTextField(TextEditingController controller, String label,
+      {bool isNumeric = true, bool isRequired = true}) {
     return Padding(
       padding: const EdgeInsets.only(top: 8.0),
       child: TextFormField(
         controller: controller,
-        keyboardType: TextInputType.number,
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
+        inputFormatters:
+            isNumeric ? [FilteringTextInputFormatter.digitsOnly] : [],
         decoration: InputDecoration(
           labelText: label,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
         ),
         validator: (value) {
-          if (value == null || value.isEmpty) return 'Please enter a value';
+          if (isRequired && (value == null || value.isEmpty)) {
+            return 'Please enter a value';
+          }
           return null;
         },
       ),

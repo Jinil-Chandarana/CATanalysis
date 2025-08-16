@@ -2,6 +2,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalyst_app/models/study_session.dart';
 import 'package:catalyst_app/persistence/hive_service.dart';
 
+// A record to hold the structured data for our new screen
+typedef DailyActivity = ({
+  Duration totalDuration,
+  List<double> hourlyBreakdown, // 24 hours, in minutes
+  Map<Subject, Duration> sessionsBySubject,
+});
+
 // 1. Provider for our HiveService instance
 final hiveServiceProvider = Provider<HiveService>((ref) => HiveService());
 
@@ -34,8 +41,7 @@ class SessionNotifier extends StateNotifier<List<StudySession>> {
   }
 }
 
-// 3. Derived providers for easy filtering and data aggregation on the UI
-
+// 3. Existing Derived Providers... (no changes)
 final varcSessionsProvider = Provider<List<StudySession>>((ref) {
   final allSessions = ref.watch(sessionProvider);
   return allSessions.where((s) => s.subject == Subject.varc).toList();
@@ -51,12 +57,10 @@ final qaSessionsProvider = Provider<List<StudySession>>((ref) {
   return allSessions.where((s) => s.subject == Subject.qa).toList();
 });
 
-// Provider for "Today's Progress" on the dashboard
 final todaysProgressProvider = Provider<Map<Subject, Duration>>((ref) {
   final allSessions = ref.watch(sessionProvider);
   final today = DateTime.now();
   final todaysSessions = allSessions.where((s) =>
-      // UPDATED: Use endTime instead of dateTime
       s.endTime.year == today.year &&
       s.endTime.month == today.month &&
       s.endTime.day == today.day);
@@ -74,28 +78,110 @@ final todaysProgressProvider = Provider<Map<Subject, Duration>>((ref) {
   return progress;
 });
 
-// --- THIS IS THE UPGRADED PROVIDER ---
-// It now returns a map where the value is another map of subject-specific durations.
 final dailySummaryProvider =
     Provider<Map<DateTime, Map<Subject, Duration>>>((ref) {
   final allSessions = ref.watch(sessionProvider);
   final Map<DateTime, Map<Subject, Duration>> summary = {};
 
   for (var session in allSessions) {
-    // Normalize DateTime to midnight to group by day
-    // UPDATED: Use endTime instead of dateTime
     final day = DateTime(
         session.endTime.year, session.endTime.month, session.endTime.day);
 
-    // Ensure the inner map for the day exists
     if (summary[day] == null) {
       summary[day] = {};
     }
-
-    // Add the session's duration to the specific subject for that day
     final currentDuration = summary[day]![session.subject] ?? Duration.zero;
     summary[day]![session.subject] = currentDuration + session.duration;
   }
-
   return summary;
+});
+
+// --- PROVIDERS FOR NEW FEATURES ---
+
+final sessionsForReviewProvider = Provider<List<StudySession>>((ref) {
+  final allSessions = ref.watch(sessionProvider);
+  return allSessions.where((s) => s.isForReview).toList();
+});
+
+final qaTagStatsProvider =
+    Provider<Map<String, ({int correct, int total})>>((ref) {
+  final qaSession = ref.watch(qaSessionsProvider);
+  final Map<String, ({int correct, int total})> tagStats = {};
+
+  for (final session in qaSession) {
+    for (final tag in session.tags) {
+      final currentCorrect = tagStats[tag]?.correct ?? 0;
+      final currentTotal = tagStats[tag]?.total ?? 0;
+      tagStats[tag] = (
+        correct: currentCorrect + session.qaTotalCorrect,
+        total: currentTotal + session.qaTotalAttempted
+      );
+    }
+  }
+  return tagStats;
+});
+
+// --- THIS IS THE PROVIDER FOR THE WEEKLY GRAPH ---
+final activityHeatmapProvider = Provider<Map<int, List<StudySession>>>((ref) {
+  final allSessions = ref.watch(sessionProvider);
+  final recentSessions = allSessions.where((s) =>
+      s.startTime.isAfter(DateTime.now().subtract(const Duration(days: 30))));
+
+  final Map<int, List<StudySession>> groupedByDay = {};
+  for (final session in recentSessions) {
+    final dayKey = session.startTime.weekday; // Monday=1, Sunday=7
+    if (groupedByDay[dayKey] == null) {
+      groupedByDay[dayKey] = [];
+    }
+    groupedByDay[dayKey]!.add(session);
+  }
+  return groupedByDay;
+});
+
+// --- THIS IS THE PROVIDER FOR THE DAILY GRAPH ---
+final dailyActivityProvider =
+    Provider.family<DailyActivity, DateTime>((ref, day) {
+  final allSessions = ref.watch(sessionProvider);
+  final targetDay = DateTime(day.year, day.month, day.day);
+
+  final sessionsOnDay = allSessions.where((s) {
+    final sessionDay =
+        DateTime(s.startTime.year, s.startTime.month, s.startTime.day);
+    return sessionDay.isAtSameMomentAs(targetDay);
+  }).toList();
+
+  final totalDuration = sessionsOnDay.fold(
+      Duration.zero, (prev, session) => prev + session.duration);
+
+  final sessionsBySubject = <Subject, Duration>{};
+  for (var session in sessionsOnDay) {
+    sessionsBySubject[session.subject] =
+        (sessionsBySubject[session.subject] ?? Duration.zero) +
+            session.duration;
+  }
+
+  final hourlyBreakdown = List.filled(24, 0.0);
+  for (final session in sessionsOnDay) {
+    for (int hour = 0; hour < 24; hour++) {
+      final hourStart =
+          DateTime(targetDay.year, targetDay.month, targetDay.day, hour);
+      final hourEnd = hourStart.add(const Duration(hours: 1));
+
+      final overlapStart =
+          session.startTime.isAfter(hourStart) ? session.startTime : hourStart;
+      final overlapEnd =
+          session.endTime.isBefore(hourEnd) ? session.endTime : hourEnd;
+
+      if (overlapStart.isBefore(overlapEnd)) {
+        final overlapDuration = overlapEnd.difference(overlapStart);
+        hourlyBreakdown[hour] += overlapDuration.inMinutes;
+      }
+    }
+  }
+
+  return (
+    totalDuration: totalDuration,
+    hourlyBreakdown: hourlyBreakdown,
+    sessionsBySubject: sessionsBySubject,
+  );
 });
