@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:catalyst_app/persistence/hive_service.dart';
 import 'package:catalyst_app/screens/dashboard/dashboard_screen.dart';
 import 'package:catalyst_app/theme/app_colors.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await Hive.initFlutter('data');
   await HiveService.init();
+
   runApp(const ProviderScope(child: CatalystApp()));
 }
 
@@ -33,7 +37,6 @@ class CatalystApp extends StatelessWidget {
           backgroundColor: Colors.transparent,
           elevation: 0,
         ),
-        // --- THIS IS THE CORRECTED LINE ---
         cardTheme: CardThemeData(
           color: AppColors.cardBackground,
           elevation: 1,

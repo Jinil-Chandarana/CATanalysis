@@ -56,9 +56,10 @@ final todaysProgressProvider = Provider<Map<Subject, Duration>>((ref) {
   final allSessions = ref.watch(sessionProvider);
   final today = DateTime.now();
   final todaysSessions = allSessions.where((s) =>
-      s.dateTime.year == today.year &&
-      s.dateTime.month == today.month &&
-      s.dateTime.day == today.day);
+      // UPDATED: Use endTime instead of dateTime
+      s.endTime.year == today.year &&
+      s.endTime.month == today.month &&
+      s.endTime.day == today.day);
 
   final progress = {
     Subject.varc: Duration.zero,
@@ -82,8 +83,9 @@ final dailySummaryProvider =
 
   for (var session in allSessions) {
     // Normalize DateTime to midnight to group by day
+    // UPDATED: Use endTime instead of dateTime
     final day = DateTime(
-        session.dateTime.year, session.dateTime.month, session.dateTime.day);
+        session.endTime.year, session.endTime.month, session.endTime.day);
 
     // Ensure the inner map for the day exists
     if (summary[day] == null) {

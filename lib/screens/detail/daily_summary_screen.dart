@@ -20,6 +20,7 @@ class DailySummaryScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // This correctly watches YOUR provider
     final dailySummary = ref.watch(dailySummaryProvider);
     final sortedDays = dailySummary.keys.toList()
       ..sort((a, b) => b.compareTo(a));
@@ -54,6 +55,7 @@ class DailySummaryScreen extends ConsumerWidget {
                     .map((entry) => _buildBreakdownChip(
                           entry.key.name,
                           _formatDuration(entry.value),
+                          // This correctly uses YOUR AppColors
                           AppColors.getSubjectColor(entry.key),
                         ))
                     .toList();

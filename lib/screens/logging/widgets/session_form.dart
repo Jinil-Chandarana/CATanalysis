@@ -19,12 +19,15 @@ class LrdiSetControllers {
 
 class SessionForm extends ConsumerStatefulWidget {
   final Subject subject;
-  final Duration duration;
+  // NEW: Receive start and end times instead of duration
+  final DateTime startTime;
+  final DateTime endTime;
 
   const SessionForm({
     super.key,
     required this.subject,
-    required this.duration,
+    required this.startTime,
+    required this.endTime,
   });
 
   @override
@@ -79,7 +82,7 @@ class _SessionFormState extends ConsumerState<SessionForm> {
   void _saveSession() {
     if (_formKey.currentState!.validate()) {
       final metrics = <String, dynamic>{};
-      final now = DateTime.now();
+      final duration = widget.endTime.difference(widget.startTime);
 
       int getInt(TextEditingController controller) =>
           int.tryParse(controller.text) ?? 0;
@@ -113,8 +116,9 @@ class _SessionFormState extends ConsumerState<SessionForm> {
       final newSession = StudySession(
         id: const Uuid().v4(),
         subject: widget.subject,
-        dateTime: now,
-        duration: widget.duration,
+        startTime: widget.startTime,
+        endTime: widget.endTime,
+        duration: duration,
         metrics: metrics,
       );
 

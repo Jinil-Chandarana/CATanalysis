@@ -55,9 +55,11 @@ class SectionDetailScreen extends ConsumerWidget {
 
   Widget _buildSessionCard(
       BuildContext context, StudySession session, WidgetRef ref) {
-    final date = DateFormat.yMMMd().format(session.dateTime);
-    final duration =
-        '${session.duration.inHours}h ${session.duration.inMinutes.remainder(60)}m';
+    final date = DateFormat.yMMMd().format(session.endTime);
+    // NEW: Format start and end times
+    final timeFormat = DateFormat.jm(); // e.g., 5:08 PM
+    final timeRange =
+        '${timeFormat.format(session.startTime)} - ${timeFormat.format(session.endTime)}';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -72,7 +74,8 @@ class SectionDetailScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 4),
-            Text('Duration: $duration'),
+            // UPDATED: Display time range instead of just duration
+            Text('Time: $timeRange'),
             _buildMetricsText(session),
           ],
         ),
@@ -90,6 +93,12 @@ class SectionDetailScreen extends ConsumerWidget {
       return '$label: ${(acc * 100).toStringAsFixed(1)}% ($correct/$total)';
     }
 
+    // NEW: Helper to format time-based metrics
+    String formatTime(String label, double value, String unit) {
+      if (value <= 0) return '';
+      return '$label: ${value.toStringAsFixed(1)} $unit';
+    }
+
     switch (session.subject) {
       case Subject.varc:
         return Column(
@@ -98,6 +107,10 @@ class SectionDetailScreen extends ConsumerWidget {
             if (session.rcTotalAttempted > 0)
               Text(formatAccuracy('RC Accuracy', session.rcAccuracy,
                   session.rcTotalCorrect, session.rcTotalAttempted)),
+            // NEW: Display RC time per question
+            if (session.rcTotalAttempted > 0)
+              Text(formatTime(
+                  'RC Speed', session.rcTimePerQuestion, 'sec/ques')),
             if (session.vaTotalAttempted > 0)
               Text(formatAccuracy('VA Accuracy', session.vaAccuracy,
                   session.vaTotalCorrect, session.vaTotalAttempted)),
@@ -108,18 +121,29 @@ class SectionDetailScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-                'Sets: ${session.lrdiSetsSolo} solved solo / ${session.lrdiSetsAttempted} attempted'),
+                'Sets: ${session.lrdiSetsSolo} solo / ${session.lrdiSetsAttempted} attempted'),
             if (session.lrdiSoloTotalAttempted > 0)
               Text(formatAccuracy(
                   'Solo Accuracy',
                   session.lrdiSoloAccuracy,
                   session.lrdiSoloTotalCorrect,
                   session.lrdiSoloTotalAttempted)),
+            // NEW: Display LRDI time per set
+            if (session.lrdiSetsAttempted > 0)
+              Text(formatTime('Pacing', session.lrdiTimePerSet, 'min/set')),
           ],
         );
       case Subject.qa:
-        return Text(formatAccuracy('Accuracy', session.qaAccuracy,
-            session.qaTotalCorrect, session.qaTotalAttempted));
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(formatAccuracy('Accuracy', session.qaAccuracy,
+                session.qaTotalCorrect, session.qaTotalAttempted)),
+            // NEW: Display QA time per question
+            if (session.qaTotalAttempted > 0)
+              Text(formatTime('Speed', session.qaTimePerQuestion, 'sec/ques')),
+          ],
+        );
     }
   }
 }

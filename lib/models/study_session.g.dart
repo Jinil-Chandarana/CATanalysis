@@ -19,25 +19,28 @@ class StudySessionAdapter extends TypeAdapter<StudySession> {
     return StudySession(
       id: fields[0] as String,
       subject: fields[1] as Subject,
-      dateTime: fields[2] as DateTime,
-      duration: fields[3] as Duration,
-      metrics: (fields[4] as Map).cast<String, dynamic>(),
+      startTime: fields[2] as DateTime,
+      endTime: fields[3] as DateTime,
+      duration: fields[4] as Duration,
+      metrics: (fields[5] as Map).cast<String, dynamic>(),
     );
   }
 
   @override
   void write(BinaryWriter writer, StudySession obj) {
     writer
-      ..writeByte(5)
+      ..writeByte(6)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
       ..write(obj.subject)
       ..writeByte(2)
-      ..write(obj.dateTime)
+      ..write(obj.startTime)
       ..writeByte(3)
-      ..write(obj.duration)
+      ..write(obj.endTime)
       ..writeByte(4)
+      ..write(obj.duration)
+      ..writeByte(5)
       ..write(obj.metrics);
   }
 

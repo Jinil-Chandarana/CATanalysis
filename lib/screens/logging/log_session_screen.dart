@@ -15,9 +15,15 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
   Duration _finalDuration = Duration.zero;
   bool _isSessionEnded = false;
 
-  void _onSessionEnd(Duration finalTime) {
+  // NEW: Add state variables for start and end times
+  DateTime? _startTime;
+  DateTime? _endTime;
+
+  void _onSessionEnd(DateTime startTime, DateTime endTime) {
     setState(() {
-      _finalDuration = finalTime;
+      _startTime = startTime;
+      _endTime = endTime;
+      _finalDuration = endTime.difference(startTime);
       _isSessionEnded = true;
     });
   }
@@ -48,7 +54,9 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
             else
               SessionForm(
                 subject: _selectedSubject,
-                duration: _finalDuration,
+                // Pass the new time objects to the form
+                startTime: _startTime!,
+                endTime: _endTime!,
               ),
           ],
         ),

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:catalyst_app/theme/app_colors.dart';
 
 class LiveTimer extends StatefulWidget {
-  final Function(Duration) onSessionEnd;
+  final Function(DateTime startTime, DateTime endTime) onSessionEnd;
 
   const LiveTimer({super.key, required this.onSessionEnd});
 
@@ -15,9 +15,14 @@ class _LiveTimerState extends State<LiveTimer> {
   Timer? _timer;
   Duration _duration = Duration.zero;
   bool _isRunning = false;
+  DateTime? _startTime;
 
   void _startTimer() {
-    _isRunning = true;
+    setState(() {
+      _isRunning = true;
+      // Capture start time only on the very first start
+      _startTime ??= DateTime.now();
+    });
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       setState(() {
         _duration = Duration(seconds: _duration.inSeconds + 1);
@@ -34,7 +39,11 @@ class _LiveTimerState extends State<LiveTimer> {
 
   void _endSession() {
     _timer?.cancel();
-    widget.onSessionEnd(_duration);
+    final endTime = DateTime.now();
+    // Ensure startTime is not null before calling back
+    if (_startTime != null) {
+      widget.onSessionEnd(_startTime!, endTime);
+    }
   }
 
   @override

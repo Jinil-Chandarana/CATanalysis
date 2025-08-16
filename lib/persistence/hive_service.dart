@@ -3,11 +3,12 @@ import 'package:catalyst_app/models/study_session.dart';
 import 'duration_adapter.dart';
 
 class HiveService {
-  static const String sessionBoxName = 'study_sessions';
+  // --- THIS IS THE FIX ---
+  static const String sessionBoxName = 'study_sessions_v2';
 
   // Call this method in main.dart to initialize Hive
   static Future<void> init() async {
-    await Hive.initFlutter();
+    // The Hive.initFlutter() call is now correctly in main.dart
     Hive.registerAdapter(SubjectAdapter());
     Hive.registerAdapter(StudySessionAdapter());
     Hive.registerAdapter(DurationAdapter());
@@ -19,19 +20,16 @@ class HiveService {
 
   List<StudySession> getAllSessions() {
     // Sort sessions by date, newest first
-    // --- THIS IS THE CORRECTED LINE ---
     final sessions = _sessionBox.values.toList();
-    sessions.sort((a, b) => b.dateTime.compareTo(a.dateTime));
+    sessions.sort((a, b) => b.endTime.compareTo(a.endTime));
     return sessions;
   }
 
   Future<void> addSession(StudySession session) async {
-    // Using the getter to prevent future typos
     await _sessionBox.put(session.id, session);
   }
 
   Future<void> deleteSession(String id) async {
-    // Using the getter to prevent future typos
     await _sessionBox.delete(id);
   }
 }
