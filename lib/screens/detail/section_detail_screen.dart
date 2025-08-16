@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:catalyst_app/models/study_session.dart';
 import 'package:catalyst_app/providers/session_provider.dart';
-import 'package:catalyst_app/theme/app_colors.dart';
 import 'widgets/performance_chart.dart';
 
 class SectionDetailScreen extends ConsumerWidget {
