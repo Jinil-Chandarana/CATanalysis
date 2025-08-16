@@ -11,9 +11,10 @@ class AppColors {
   static const Color accent = Color(0xFF4A5568);
 
   // Subject-Specific Colors
-  static const Color varcColor = Color.fromARGB(255, 145, 184, 165); //
+  static const Color varcColor = Color.fromARGB(255, 145, 184, 165);
   static const Color lrdiColor = Color.fromARGB(255, 130, 134, 177);
   static const Color qaColor = Color.fromARGB(255, 126, 160, 191);
+  static const Color miscColor = Color(0xFF4A5568);
 
   // Helper function to get the right color for a subject
   static Color getSubjectColor(Subject subject) {
@@ -24,6 +25,8 @@ class AppColors {
         return lrdiColor;
       case Subject.qa:
         return qaColor;
+      case Subject.misc: // New
+        return miscColor;
     }
   }
 }

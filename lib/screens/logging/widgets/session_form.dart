@@ -5,7 +5,6 @@ import 'package:uuid/uuid.dart';
 import 'package:catalyst_app/models/study_session.dart';
 import 'package:catalyst_app/providers/session_provider.dart';
 
-// Helper classes now include difficulty
 class RcSetControllers {
   final TextEditingController questions = TextEditingController();
   final TextEditingController correct = TextEditingController();
@@ -38,20 +37,23 @@ class SessionForm extends ConsumerStatefulWidget {
 class _SessionFormState extends ConsumerState<SessionForm> {
   final _formKey = GlobalKey<FormState>();
 
-  // Controllers for VARC
+  // VARC
   final List<RcSetControllers> _rcSets = [];
   final TextEditingController _vaAttemptedController = TextEditingController();
   final TextEditingController _vaCorrectController = TextEditingController();
 
-  // Controllers for LRDI
+  // LRDI
   final List<LrdiSetControllers> _lrdiSets = [];
 
-  // Controllers for QA
+  // QA
   final TextEditingController _qaAttemptedController = TextEditingController();
   final TextEditingController _qaCorrectController = TextEditingController();
   final TextEditingController _qaTagsController = TextEditingController();
 
-  // Controllers for new global features
+  // Misc - New
+  final TextEditingController _taskNameController = TextEditingController();
+
+  // Global
   final TextEditingController _notesController = TextEditingController();
   bool _isForReview = false;
 
@@ -64,7 +66,6 @@ class _SessionFormState extends ConsumerState<SessionForm> {
 
   @override
   void dispose() {
-    // Dispose all controllers
     for (var set in _rcSets) {
       set.questions.dispose();
       set.correct.dispose();
@@ -78,6 +79,7 @@ class _SessionFormState extends ConsumerState<SessionForm> {
     _qaAttemptedController.dispose();
     _qaCorrectController.dispose();
     _qaTagsController.dispose();
+    _taskNameController.dispose(); // New
     _notesController.dispose();
     super.dispose();
   }
@@ -96,14 +98,13 @@ class _SessionFormState extends ConsumerState<SessionForm> {
       int getInt(TextEditingController controller) =>
           int.tryParse(controller.text) ?? 0;
 
-      // Save data based on subject
       switch (widget.subject) {
         case Subject.varc:
           metrics['rc_sets'] = _rcSets
               .map((c) => {
                     'questions': getInt(c.questions),
                     'correct': getInt(c.correct),
-                    'difficulty': c.difficulty.index, // Save difficulty
+                    'difficulty': c.difficulty.index,
                   })
               .toList();
           metrics['va_attempted'] = getInt(_vaAttemptedController);
@@ -115,23 +116,24 @@ class _SessionFormState extends ConsumerState<SessionForm> {
                     'questions': getInt(c.questions),
                     'correct': getInt(c.correct),
                     'is_solo': c.isSolo,
-                    'difficulty': c.difficulty.index, // Save difficulty
+                    'difficulty': c.difficulty.index,
                   })
               .toList();
           break;
         case Subject.qa:
           metrics['questionsAttempted'] = getInt(_qaAttemptedController);
           metrics['questionsCorrect'] = getInt(_qaCorrectController);
-          // Save tags
           metrics['tags'] = _qaTagsController.text
               .split(',')
               .map((s) => s.trim())
               .where((s) => s.isNotEmpty)
               .toList();
           break;
+        case Subject.misc: // New case
+          metrics['task_name'] = _taskNameController.text.trim();
+          break;
       }
 
-      // Save global feature data
       metrics['notes'] = _notesController.text;
       metrics['is_for_review'] = _isForReview;
 
@@ -158,7 +160,7 @@ class _SessionFormState extends ConsumerState<SessionForm> {
         children: [
           ..._buildFormFields(),
           const Divider(height: 40),
-          _buildGlobalFields(), // Notes and Review Flag
+          _buildGlobalFields(),
           const SizedBox(height: 24),
           ElevatedButton(
             onPressed: _saveSession,
@@ -182,10 +184,11 @@ class _SessionFormState extends ConsumerState<SessionForm> {
         return _buildLrdiForm();
       case Subject.qa:
         return _buildQaForm();
+      case Subject.misc: // New
+        return _buildMiscForm();
     }
   }
 
-  // --- FORM BUILDERS ---
   List<Widget> _buildVarcForm() {
     return [
       Text("Reading Comprehension",
@@ -265,11 +268,19 @@ class _SessionFormState extends ConsumerState<SessionForm> {
     ];
   }
 
+  // New Form for Misc
+  List<Widget> _buildMiscForm() {
+    return [
+      _buildTextField(_taskNameController, 'Task Name (e.g. Read Article)',
+          isNumeric: false),
+    ];
+  }
+
   Widget _buildGlobalFields() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildTextField(_notesController, 'Notes / Mistake Analysis (Optional)',
+        _buildTextField(_notesController, 'Notes / Analysis (Optional)',
             isNumeric: false, isRequired: false),
         CheckboxListTile(
           title: const Text("Flag for Later Review"),
@@ -282,7 +293,6 @@ class _SessionFormState extends ConsumerState<SessionForm> {
     );
   }
 
-  // --- REUSABLE WIDGETS ---
   Widget _buildSetCard(
       {required int index,
       required String title,

@@ -19,6 +19,7 @@ class DashboardScreen extends ConsumerWidget {
     final varcSessions = ref.watch(varcSessionsProvider);
     final lrdiSessions = ref.watch(lrdiSessionsProvider);
     final qaSessions = ref.watch(qaSessionsProvider);
+    final miscSessions = ref.watch(miscSessionsProvider); // New
 
     return Scaffold(
       appBar: AppBar(
@@ -28,7 +29,6 @@ class DashboardScreen extends ConsumerWidget {
         ),
         centerTitle: false,
         actions: [
-          // NEW BUTTONS
           IconButton(
             icon: const Icon(Icons.bar_chart, color: AppColors.secondaryText),
             tooltip: 'Activity Insights',
@@ -90,6 +90,13 @@ class DashboardScreen extends ConsumerWidget {
             progressText: '${qaSessions.length} sessions logged',
             color: AppColors.getSubjectColor(Subject.qa),
             onTap: () => _navigateToDetail(context, Subject.qa),
+          ),
+          const SizedBox(height: 16), // New Card
+          SubjectCard(
+            subject: Subject.misc,
+            progressText: '${miscSessions.length} sessions logged',
+            color: AppColors.getSubjectColor(Subject.misc),
+            onTap: () => _navigateToDetail(context, Subject.misc),
           ),
         ],
       ),

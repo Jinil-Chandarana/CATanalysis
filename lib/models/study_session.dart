@@ -10,6 +10,8 @@ enum Subject {
   lrdi,
   @HiveField(2)
   qa,
+  @HiveField(3) // New
+  misc,
 }
 
 extension SubjectExtension on Subject {
@@ -21,11 +23,12 @@ extension SubjectExtension on Subject {
         return 'LRDI';
       case Subject.qa:
         return 'QA';
+      case Subject.misc: // New
+        return 'Misc';
     }
   }
 }
 
-// NEW ENUM FOR DIFFICULTY
 enum Difficulty { easy, medium, hard }
 
 extension DifficultyExtension on Difficulty {
@@ -65,10 +68,14 @@ class StudySession extends HiveObject {
     required this.metrics,
   });
 
-  // --- NEW: GETTERS FOR NEW FEATURES ---
+  // --- GETTERS FOR NEW FEATURES ---
   String? get notes => metrics['notes'] as String?;
   bool get isForReview => (metrics['is_for_review'] ?? false) as bool;
   List<String> get tags => (metrics['tags'] as List?)?.cast<String>() ?? [];
+
+  // --- THIS IS THE FIX ---
+  // This getter was missing from the file I sent you before.
+  String? get taskName => metrics['task_name'] as String?;
 
   // --- GETTERS FOR VARC ---
   List<Map> get _rcSets => (metrics['rc_sets'] as List?)?.cast<Map>() ?? [];

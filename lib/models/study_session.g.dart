@@ -68,6 +68,8 @@ class SubjectAdapter extends TypeAdapter<Subject> {
         return Subject.lrdi;
       case 2:
         return Subject.qa;
+      case 3:
+        return Subject.misc;
       default:
         return Subject.varc;
     }
@@ -84,6 +86,9 @@ class SubjectAdapter extends TypeAdapter<Subject> {
         break;
       case Subject.qa:
         writer.writeByte(2);
+        break;
+      case Subject.misc:
+        writer.writeByte(3);
         break;
     }
   }

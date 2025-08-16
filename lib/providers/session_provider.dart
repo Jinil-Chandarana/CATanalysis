@@ -2,17 +2,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalyst_app/models/study_session.dart';
 import 'package:catalyst_app/persistence/hive_service.dart';
 
-// A record to hold the structured data for our new screen
 typedef DailyActivity = ({
   Duration totalDuration,
-  List<double> hourlyBreakdown, // 24 hours, in minutes
+  List<double> hourlyBreakdown,
   Map<Subject, Duration> sessionsBySubject,
 });
 
-// 1. Provider for our HiveService instance
 final hiveServiceProvider = Provider<HiveService>((ref) => HiveService());
 
-// 2. The main StateNotifierProvider that manages the list of sessions
 final sessionProvider =
     StateNotifierProvider<SessionNotifier, List<StudySession>>((ref) {
   final hiveService = ref.watch(hiveServiceProvider);
@@ -23,7 +20,7 @@ class SessionNotifier extends StateNotifier<List<StudySession>> {
   final HiveService _hiveService;
 
   SessionNotifier(this._hiveService) : super([]) {
-    loadSessions(); // Load initial data
+    loadSessions();
   }
 
   void loadSessions() {
@@ -32,16 +29,15 @@ class SessionNotifier extends StateNotifier<List<StudySession>> {
 
   Future<void> addSession(StudySession session) async {
     await _hiveService.addSession(session);
-    loadSessions(); // Reload list and notify UI
+    loadSessions();
   }
 
   Future<void> deleteSession(String id) async {
     await _hiveService.deleteSession(id);
-    loadSessions(); // Reload list and notify UI
+    loadSessions();
   }
 }
 
-// 3. Existing Derived Providers... (no changes)
 final varcSessionsProvider = Provider<List<StudySession>>((ref) {
   final allSessions = ref.watch(sessionProvider);
   return allSessions.where((s) => s.subject == Subject.varc).toList();
@@ -57,6 +53,12 @@ final qaSessionsProvider = Provider<List<StudySession>>((ref) {
   return allSessions.where((s) => s.subject == Subject.qa).toList();
 });
 
+// New Provider for Misc Sessions
+final miscSessionsProvider = Provider<List<StudySession>>((ref) {
+  final allSessions = ref.watch(sessionProvider);
+  return allSessions.where((s) => s.subject == Subject.misc).toList();
+});
+
 final todaysProgressProvider = Provider<Map<Subject, Duration>>((ref) {
   final allSessions = ref.watch(sessionProvider);
   final today = DateTime.now();
@@ -65,10 +67,12 @@ final todaysProgressProvider = Provider<Map<Subject, Duration>>((ref) {
       s.endTime.month == today.month &&
       s.endTime.day == today.day);
 
+  // Updated to include Misc
   final progress = {
     Subject.varc: Duration.zero,
     Subject.lrdi: Duration.zero,
     Subject.qa: Duration.zero,
+    Subject.misc: Duration.zero,
   };
 
   for (var session in todaysSessions) {
@@ -96,8 +100,6 @@ final dailySummaryProvider =
   return summary;
 });
 
-// --- PROVIDERS FOR NEW FEATURES ---
-
 final sessionsForReviewProvider = Provider<List<StudySession>>((ref) {
   final allSessions = ref.watch(sessionProvider);
   return allSessions.where((s) => s.isForReview).toList();
@@ -121,7 +123,21 @@ final qaTagStatsProvider =
   return tagStats;
 });
 
-// --- THIS IS THE PROVIDER FOR THE WEEKLY GRAPH ---
+// New Provider to analyze Misc tasks
+final miscTaskStatsProvider = Provider<Map<String, Duration>>((ref) {
+  final miscSessions = ref.watch(miscSessionsProvider);
+  final Map<String, Duration> taskStats = {};
+
+  for (final session in miscSessions) {
+    final taskName = session.taskName;
+    if (taskName != null && taskName.isNotEmpty) {
+      taskStats[taskName] =
+          (taskStats[taskName] ?? Duration.zero) + session.duration;
+    }
+  }
+  return taskStats;
+});
+
 final activityHeatmapProvider = Provider<Map<int, List<StudySession>>>((ref) {
   final allSessions = ref.watch(sessionProvider);
   final recentSessions = allSessions.where((s) =>
@@ -129,7 +145,7 @@ final activityHeatmapProvider = Provider<Map<int, List<StudySession>>>((ref) {
 
   final Map<int, List<StudySession>> groupedByDay = {};
   for (final session in recentSessions) {
-    final dayKey = session.startTime.weekday; // Monday=1, Sunday=7
+    final dayKey = session.startTime.weekday;
     if (groupedByDay[dayKey] == null) {
       groupedByDay[dayKey] = [];
     }
@@ -138,7 +154,6 @@ final activityHeatmapProvider = Provider<Map<int, List<StudySession>>>((ref) {
   return groupedByDay;
 });
 
-// --- THIS IS THE PROVIDER FOR THE DAILY GRAPH ---
 final dailyActivityProvider =
     Provider.family<DailyActivity, DateTime>((ref, day) {
   final allSessions = ref.watch(sessionProvider);

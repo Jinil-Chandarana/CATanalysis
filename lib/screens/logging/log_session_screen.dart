@@ -15,7 +15,6 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
   Duration _finalDuration = Duration.zero;
   bool _isSessionEnded = false;
 
-  // NEW: Add state variables for start and end times
   DateTime? _startTime;
   DateTime? _endTime;
 
@@ -40,21 +39,16 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Show timer OR the "Session Complete" message
             if (!_isSessionEnded)
               LiveTimer(onSessionEnd: _onSessionEnd)
             else
               _buildSessionCompleteHeader(),
-
             const SizedBox(height: 24),
-
-            // Show subject selection OR the final form
             if (!_isSessionEnded)
               _buildSubjectSelector()
             else
               SessionForm(
                 subject: _selectedSubject,
-                // Pass the new time objects to the form
                 startTime: _startTime!,
                 endTime: _endTime!,
               ),
@@ -101,10 +95,12 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
         ),
         const SizedBox(height: 8),
         SegmentedButton<Subject>(
+          // Updated to include Misc
           segments: const [
             ButtonSegment(value: Subject.varc, label: Text('VARC')),
             ButtonSegment(value: Subject.lrdi, label: Text('LRDI')),
             ButtonSegment(value: Subject.qa, label: Text('QA')),
+            ButtonSegment(value: Subject.misc, label: Text('Misc')),
           ],
           selected: {_selectedSubject},
           onSelectionChanged: (newSelection) {

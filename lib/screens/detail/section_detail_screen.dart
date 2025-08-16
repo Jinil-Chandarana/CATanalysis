@@ -13,11 +13,11 @@ class SectionDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Select the correct provider based on the subject
     final sessionsProvider = switch (subject) {
       Subject.varc => varcSessionsProvider,
       Subject.lrdi => lrdiSessionsProvider,
       Subject.qa => qaSessionsProvider,
+      Subject.misc => miscSessionsProvider, // New
     };
     final sessions = ref.watch(sessionsProvider);
 
@@ -35,12 +35,18 @@ class SectionDetailScreen extends ConsumerWidget {
           : ListView(
               padding: const EdgeInsets.all(16.0),
               children: [
-                // Only show the Topic Stats card for QA
                 if (subject == Subject.qa) ...[
                   _buildQaTopicStats(context, ref),
                   const SizedBox(height: 24),
                 ],
-                PerformanceChart(sessions: sessions),
+                // New: Show task analysis for Misc
+                if (subject == Subject.misc) ...[
+                  _buildMiscTaskStats(context, ref),
+                  const SizedBox(height: 24),
+                ],
+                // New: Hide chart for Misc
+                if (subject != Subject.misc)
+                  PerformanceChart(sessions: sessions),
                 const SizedBox(height: 24),
                 Text(
                   'Session History',
@@ -63,7 +69,6 @@ class SectionDetailScreen extends ConsumerWidget {
     if (tagStats.isEmpty) {
       return const SizedBox.shrink();
     }
-    // Sort tags by the number of questions attempted
     final sortedTags = tagStats.entries.toList()
       ..sort((a, b) => b.value.total.compareTo(a.value.total));
 
@@ -90,6 +95,52 @@ class SectionDetailScreen extends ConsumerWidget {
                     Text(entry.key),
                     Text(
                       '${(entry.value.correct / entry.value.total * 100).toStringAsFixed(1)}% (${entry.value.correct}/${entry.value.total})',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // New widget for Misc task analysis
+  Widget _buildMiscTaskStats(BuildContext context, WidgetRef ref) {
+    final taskStats = ref.watch(miscTaskStatsProvider);
+    if (taskStats.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final sortedTasks = taskStats.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    String formatDuration(Duration d) =>
+        '${d.inHours}h ${d.inMinutes.remainder(60)}m';
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Time Spent per Task',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            for (var entry in sortedTasks)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(entry.key),
+                    Text(
+                      formatDuration(entry.value),
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ],
@@ -137,7 +188,6 @@ class SectionDetailScreen extends ConsumerWidget {
                 style: const TextStyle(color: Colors.black54)),
             const Divider(height: 20),
             _buildMetricsDisplay(session),
-            // Display notes if they exist
             if (session.notes != null && session.notes!.isNotEmpty) ...[
               const SizedBox(height: 8),
               Container(
@@ -164,10 +214,9 @@ class SectionDetailScreen extends ConsumerWidget {
     );
   }
 
-  // A new helper to display all the metrics cleanly
   Widget _buildMetricsDisplay(StudySession session) {
     String formatAccuracy(double acc, int correct, int total) {
-      if (total == 0) return '0.0% (0/0)'; // Avoid division by zero
+      if (total == 0) return '0.0% (0/0)';
       return '${(acc * 100).toStringAsFixed(1)}% ($correct/$total)';
     }
 
@@ -182,8 +231,6 @@ class SectionDetailScreen extends ConsumerWidget {
           children: [
             for (var set in (session.metrics['rc_sets'] as List))
               _buildMetricRow(
-                  // --- THIS IS THE FIX ---
-                  // We provide a default difficulty if one is not found in the data.
                   'RC Set (${Difficulty.values[set['difficulty'] ?? Difficulty.medium.index].name})',
                   formatAccuracy(
                       (set['questions'] ?? 0) > 0
@@ -203,8 +250,6 @@ class SectionDetailScreen extends ConsumerWidget {
           children: [
             for (var set in (session.metrics['lrdi_sets'] as List))
               _buildMetricRow(
-                  // --- THIS IS THE FIX ---
-                  // We provide a default difficulty if one is not found in the data.
                   'LRDI Set (${Difficulty.values[set['difficulty'] ?? Difficulty.medium.index].name})',
                   formatAccuracy(
                       (set['questions'] ?? 0) > 0
@@ -229,6 +274,8 @@ class SectionDetailScreen extends ConsumerWidget {
               _buildMetricRow('Topics', session.tags.join(', ')),
           ],
         );
+      case Subject.misc: // New
+        return _buildMetricRow('Task', session.taskName ?? 'N/A');
     }
   }
 
