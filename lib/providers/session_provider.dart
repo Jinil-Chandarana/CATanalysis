@@ -53,7 +53,6 @@ final qaSessionsProvider = Provider<List<StudySession>>((ref) {
   return allSessions.where((s) => s.subject == Subject.qa).toList();
 });
 
-// New Provider for Misc Sessions
 final miscSessionsProvider = Provider<List<StudySession>>((ref) {
   final allSessions = ref.watch(sessionProvider);
   return allSessions.where((s) => s.subject == Subject.misc).toList();
@@ -67,7 +66,6 @@ final todaysProgressProvider = Provider<Map<Subject, Duration>>((ref) {
       s.endTime.month == today.month &&
       s.endTime.day == today.day);
 
-  // Updated to include Misc
   final progress = {
     Subject.varc: Duration.zero,
     Subject.lrdi: Duration.zero,
@@ -76,8 +74,9 @@ final todaysProgressProvider = Provider<Map<Subject, Duration>>((ref) {
   };
 
   for (var session in todaysSessions) {
+    // --- FIX: Use focusDuration ---
     progress[session.subject] =
-        (progress[session.subject] ?? Duration.zero) + session.duration;
+        (progress[session.subject] ?? Duration.zero) + session.focusDuration;
   }
   return progress;
 });
@@ -95,7 +94,8 @@ final dailySummaryProvider =
       summary[day] = {};
     }
     final currentDuration = summary[day]![session.subject] ?? Duration.zero;
-    summary[day]![session.subject] = currentDuration + session.duration;
+    // --- FIX: Use focusDuration ---
+    summary[day]![session.subject] = currentDuration + session.focusDuration;
   }
   return summary;
 });
@@ -123,7 +123,6 @@ final qaTagStatsProvider =
   return tagStats;
 });
 
-// New Provider to analyze Misc tasks
 final miscTaskStatsProvider = Provider<Map<String, Duration>>((ref) {
   final miscSessions = ref.watch(miscSessionsProvider);
   final Map<String, Duration> taskStats = {};
@@ -131,8 +130,9 @@ final miscTaskStatsProvider = Provider<Map<String, Duration>>((ref) {
   for (final session in miscSessions) {
     final taskName = session.taskName;
     if (taskName != null && taskName.isNotEmpty) {
+      // --- FIX: Use focusDuration ---
       taskStats[taskName] =
-          (taskStats[taskName] ?? Duration.zero) + session.duration;
+          (taskStats[taskName] ?? Duration.zero) + session.focusDuration;
     }
   }
   return taskStats;
@@ -166,13 +166,15 @@ final dailyActivityProvider =
   }).toList();
 
   final totalDuration = sessionsOnDay.fold(
-      Duration.zero, (prev, session) => prev + session.duration);
+      Duration.zero,
+      (prev, session) =>
+          prev + session.focusDuration); // --- FIX: Use focusDuration
 
   final sessionsBySubject = <Subject, Duration>{};
   for (var session in sessionsOnDay) {
     sessionsBySubject[session.subject] =
         (sessionsBySubject[session.subject] ?? Duration.zero) +
-            session.duration;
+            session.focusDuration; // --- FIX: Use focusDuration
   }
 
   final hourlyBreakdown = List.filled(24, 0.0);

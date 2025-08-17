@@ -21,7 +21,8 @@ class StudySessionAdapter extends TypeAdapter<StudySession> {
       subject: fields[1] as Subject,
       startTime: fields[2] as DateTime,
       endTime: fields[3] as DateTime,
-      duration: fields[4] as Duration,
+      focusDuration: fields[4] as Duration,
+      seatingDuration: fields[6] as Duration,
       metrics: (fields[5] as Map).cast<String, dynamic>(),
     );
   }
@@ -29,7 +30,7 @@ class StudySessionAdapter extends TypeAdapter<StudySession> {
   @override
   void write(BinaryWriter writer, StudySession obj) {
     writer
-      ..writeByte(6)
+      ..writeByte(7)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -39,9 +40,11 @@ class StudySessionAdapter extends TypeAdapter<StudySession> {
       ..writeByte(3)
       ..write(obj.endTime)
       ..writeByte(4)
-      ..write(obj.duration)
+      ..write(obj.focusDuration)
       ..writeByte(5)
-      ..write(obj.metrics);
+      ..write(obj.metrics)
+      ..writeByte(6)
+      ..write(obj.seatingDuration);
   }
 
   @override

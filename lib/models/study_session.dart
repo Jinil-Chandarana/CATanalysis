@@ -10,7 +10,7 @@ enum Subject {
   lrdi,
   @HiveField(2)
   qa,
-  @HiveField(3) // New
+  @HiveField(3)
   misc,
 }
 
@@ -23,7 +23,7 @@ extension SubjectExtension on Subject {
         return 'LRDI';
       case Subject.qa:
         return 'QA';
-      case Subject.misc: // New
+      case Subject.misc:
         return 'Misc';
     }
   }
@@ -55,26 +55,30 @@ class StudySession extends HiveObject {
   @HiveField(3)
   late DateTime endTime;
   @HiveField(4)
-  late Duration duration;
+  late Duration focusDuration;
   @HiveField(5)
   late Map<String, dynamic> metrics;
+  @HiveField(6)
+  late Duration seatingDuration;
 
   StudySession({
     required this.id,
     required this.subject,
     required this.startTime,
     required this.endTime,
-    required this.duration,
+    required this.focusDuration,
+    required this.seatingDuration,
     required this.metrics,
   });
 
-  // --- GETTERS FOR NEW FEATURES ---
+  double get focusPercentage {
+    if (seatingDuration.inSeconds == 0) return 0.0;
+    return focusDuration.inSeconds / seatingDuration.inSeconds;
+  }
+
   String? get notes => metrics['notes'] as String?;
   bool get isForReview => (metrics['is_for_review'] ?? false) as bool;
   List<String> get tags => (metrics['tags'] as List?)?.cast<String>() ?? [];
-
-  // --- THIS IS THE FIX ---
-  // This getter was missing from the file I sent you before.
   String? get taskName => metrics['task_name'] as String?;
 
   // --- GETTERS FOR VARC ---
@@ -86,7 +90,7 @@ class StudySession extends HiveObject {
   double get rcAccuracy =>
       rcTotalAttempted > 0 ? rcTotalCorrect / rcTotalAttempted : 0.0;
   double get rcTimePerQuestion =>
-      rcTotalAttempted > 0 ? duration.inSeconds / rcTotalAttempted : 0.0;
+      rcTotalAttempted > 0 ? focusDuration.inSeconds / rcTotalAttempted : 0.0;
 
   int get vaTotalAttempted => (metrics['va_attempted'] ?? 0) as int;
   int get vaTotalCorrect => (metrics['va_correct'] ?? 0) as int;
@@ -95,19 +99,23 @@ class StudySession extends HiveObject {
 
   // --- GETTERS FOR LRDI ---
   List<Map> get _lrdiSets => (metrics['lrdi_sets'] as List?)?.cast<Map>() ?? [];
-  List<Map> get _lrdiSoloSets =>
+
+  // --- FIX: Corrected the return type to List<Map> and renamed for clarity ---
+  List<Map> get lrdiSoloSets =>
       _lrdiSets.where((set) => (set['is_solo'] ?? false) as bool).toList();
+
   int get lrdiSetsAttempted => _lrdiSets.length;
-  int get lrdiSetsSolo => _lrdiSoloSets.length;
-  int get lrdiSoloTotalAttempted => _lrdiSoloSets.fold(
+  int get lrdiSetsSoloCount => lrdiSoloSets.length; // Use the corrected getter
+
+  int get lrdiSoloTotalAttempted => lrdiSoloSets.fold(
       0, (prev, set) => prev + ((set['questions'] ?? 0) as int));
-  int get lrdiSoloTotalCorrect => _lrdiSoloSets.fold(
+  int get lrdiSoloTotalCorrect => lrdiSoloSets.fold(
       0, (prev, set) => prev + ((set['correct'] ?? 0) as int));
   double get lrdiSoloAccuracy => lrdiSoloTotalAttempted > 0
       ? lrdiSoloTotalCorrect / lrdiSoloTotalAttempted
       : 0.0;
   double get lrdiTimePerSet =>
-      lrdiSetsAttempted > 0 ? duration.inMinutes / lrdiSetsAttempted : 0.0;
+      lrdiSetsAttempted > 0 ? focusDuration.inMinutes / lrdiSetsAttempted : 0.0;
 
   // --- GETTERS FOR QA ---
   int get qaTotalAttempted => (metrics['questionsAttempted'] ?? 0) as int;
@@ -115,5 +123,5 @@ class StudySession extends HiveObject {
   double get qaAccuracy =>
       qaTotalAttempted > 0 ? qaTotalCorrect / qaTotalAttempted : 0.0;
   double get qaTimePerQuestion =>
-      qaTotalAttempted > 0 ? duration.inSeconds / qaTotalAttempted : 0.0;
+      qaTotalAttempted > 0 ? focusDuration.inSeconds / qaTotalAttempted : 0.0;
 }

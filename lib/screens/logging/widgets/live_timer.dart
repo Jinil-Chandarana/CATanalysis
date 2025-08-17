@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:catalyst_app/theme/app_colors.dart';
 
 class LiveTimer extends StatefulWidget {
-  final Function(DateTime startTime, DateTime endTime) onSessionEnd;
+  // Callback now includes the focusDuration
+  final Function(DateTime startTime, DateTime endTime, Duration focusDuration)
+      onSessionEnd;
 
   const LiveTimer({super.key, required this.onSessionEnd});
 
@@ -13,14 +15,13 @@ class LiveTimer extends StatefulWidget {
 
 class _LiveTimerState extends State<LiveTimer> {
   Timer? _timer;
-  Duration _duration = Duration.zero;
+  Duration _duration = Duration.zero; // This is the actual focus time
   bool _isRunning = false;
   DateTime? _startTime;
 
   void _startTimer() {
     setState(() {
       _isRunning = true;
-      // Capture start time only on the very first start
       _startTime ??= DateTime.now();
     });
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -40,9 +41,9 @@ class _LiveTimerState extends State<LiveTimer> {
   void _endSession() {
     _timer?.cancel();
     final endTime = DateTime.now();
-    // Ensure startTime is not null before calling back
     if (_startTime != null) {
-      widget.onSessionEnd(_startTime!, endTime);
+      // Pass the actual timed duration back
+      widget.onSessionEnd(_startTime!, endTime, _duration);
     }
   }
 
@@ -81,7 +82,6 @@ class _LiveTimerState extends State<LiveTimer> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              // Start/Pause Button
               ElevatedButton.icon(
                 onPressed: _isRunning ? _pauseTimer : _startTimer,
                 icon: Icon(_isRunning ? Icons.pause : Icons.play_arrow),
@@ -91,8 +91,6 @@ class _LiveTimerState extends State<LiveTimer> {
                       const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 ),
               ),
-
-              // End Session Button
               ElevatedButton.icon(
                 onPressed: _duration > Duration.zero ? _endSession : null,
                 icon: const Icon(Icons.stop),

@@ -22,12 +22,14 @@ class SessionForm extends ConsumerStatefulWidget {
   final Subject subject;
   final DateTime startTime;
   final DateTime endTime;
+  final Duration focusDuration; // New
 
   const SessionForm({
     super.key,
     required this.subject,
     required this.startTime,
     required this.endTime,
+    required this.focusDuration,
   });
 
   @override
@@ -36,24 +38,14 @@ class SessionForm extends ConsumerStatefulWidget {
 
 class _SessionFormState extends ConsumerState<SessionForm> {
   final _formKey = GlobalKey<FormState>();
-
-  // VARC
   final List<RcSetControllers> _rcSets = [];
   final TextEditingController _vaAttemptedController = TextEditingController();
   final TextEditingController _vaCorrectController = TextEditingController();
-
-  // LRDI
   final List<LrdiSetControllers> _lrdiSets = [];
-
-  // QA
   final TextEditingController _qaAttemptedController = TextEditingController();
   final TextEditingController _qaCorrectController = TextEditingController();
   final TextEditingController _qaTagsController = TextEditingController();
-
-  // Misc - New
   final TextEditingController _taskNameController = TextEditingController();
-
-  // Global
   final TextEditingController _notesController = TextEditingController();
   bool _isForReview = false;
 
@@ -79,7 +71,7 @@ class _SessionFormState extends ConsumerState<SessionForm> {
     _qaAttemptedController.dispose();
     _qaCorrectController.dispose();
     _qaTagsController.dispose();
-    _taskNameController.dispose(); // New
+    _taskNameController.dispose();
     _notesController.dispose();
     super.dispose();
   }
@@ -93,7 +85,7 @@ class _SessionFormState extends ConsumerState<SessionForm> {
   void _saveSession() {
     if (_formKey.currentState!.validate()) {
       final metrics = <String, dynamic>{};
-      final duration = widget.endTime.difference(widget.startTime);
+      final seatingDuration = widget.endTime.difference(widget.startTime);
 
       int getInt(TextEditingController controller) =>
           int.tryParse(controller.text) ?? 0;
@@ -129,7 +121,7 @@ class _SessionFormState extends ConsumerState<SessionForm> {
               .where((s) => s.isNotEmpty)
               .toList();
           break;
-        case Subject.misc: // New case
+        case Subject.misc:
           metrics['task_name'] = _taskNameController.text.trim();
           break;
       }
@@ -142,7 +134,8 @@ class _SessionFormState extends ConsumerState<SessionForm> {
         subject: widget.subject,
         startTime: widget.startTime,
         endTime: widget.endTime,
-        duration: duration,
+        focusDuration: widget.focusDuration, // Save focus duration
+        seatingDuration: seatingDuration, // Save seating duration
         metrics: metrics,
       );
 
@@ -176,6 +169,8 @@ class _SessionFormState extends ConsumerState<SessionForm> {
     );
   }
 
+  // ... (rest of the file is unchanged, only copy the part above) ...
+
   List<Widget> _buildFormFields() {
     switch (widget.subject) {
       case Subject.varc:
@@ -184,7 +179,7 @@ class _SessionFormState extends ConsumerState<SessionForm> {
         return _buildLrdiForm();
       case Subject.qa:
         return _buildQaForm();
-      case Subject.misc: // New
+      case Subject.misc:
         return _buildMiscForm();
     }
   }
@@ -268,7 +263,6 @@ class _SessionFormState extends ConsumerState<SessionForm> {
     ];
   }
 
-  // New Form for Misc
   List<Widget> _buildMiscForm() {
     return [
       _buildTextField(_taskNameController, 'Task Name (e.g. Read Article)',

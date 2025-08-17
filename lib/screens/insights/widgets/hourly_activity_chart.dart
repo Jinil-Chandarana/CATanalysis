@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:catalyst_app/theme/app_colors.dart';
 
 class HourlyActivityChart extends StatelessWidget {
-  final List<double> hourlyData; // List of 24 values
+  final List<double> hourlyData;
 
   const HourlyActivityChart({super.key, required this.hourlyData});
 
@@ -49,14 +49,21 @@ class HourlyActivityChart extends StatelessWidget {
                 },
               ),
             ),
+            // --- TIME FORMAT FIX ---
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
                 getTitlesWidget: (value, meta) {
                   final hour = value.toInt();
                   if (hour % 6 == 0) {
-                    return Text('${hour.toString().padLeft(2, '0')}',
-                        style: const TextStyle(fontSize: 10));
+                    if (hour == 0)
+                      return const Text('12a', style: TextStyle(fontSize: 10));
+                    if (hour == 6)
+                      return const Text('6a', style: TextStyle(fontSize: 10));
+                    if (hour == 12)
+                      return const Text('12p', style: TextStyle(fontSize: 10));
+                    if (hour == 18)
+                      return const Text('6p', style: TextStyle(fontSize: 10));
                   }
                   return const SizedBox.shrink();
                 },

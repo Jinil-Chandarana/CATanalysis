@@ -12,17 +12,18 @@ class LogSessionScreen extends StatefulWidget {
 
 class _LogSessionScreenState extends State<LogSessionScreen> {
   Subject _selectedSubject = Subject.varc;
-  Duration _finalDuration = Duration.zero;
+  Duration _finalFocusDuration = Duration.zero;
   bool _isSessionEnded = false;
 
   DateTime? _startTime;
   DateTime? _endTime;
 
-  void _onSessionEnd(DateTime startTime, DateTime endTime) {
+  void _onSessionEnd(
+      DateTime startTime, DateTime endTime, Duration focusDuration) {
     setState(() {
       _startTime = startTime;
       _endTime = endTime;
-      _finalDuration = endTime.difference(startTime);
+      _finalFocusDuration = focusDuration; // This is the actual timed duration
       _isSessionEnded = true;
     });
   }
@@ -51,6 +52,7 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
                 subject: _selectedSubject,
                 startTime: _startTime!,
                 endTime: _endTime!,
+                focusDuration: _finalFocusDuration, // Pass the focus duration
               ),
           ],
         ),
@@ -68,8 +70,9 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
             'Session Complete!',
             style: Theme.of(context).textTheme.headlineSmall,
           ),
+          // This now correctly shows the FOCUS time
           Text(
-            'Time: ${_finalDuration.inHours}h ${_finalDuration.inMinutes.remainder(60)}m ${_finalDuration.inSeconds.remainder(60)}s',
+            'Focus Time: ${_finalFocusDuration.inHours}h ${_finalFocusDuration.inMinutes.remainder(60)}m ${_finalFocusDuration.inSeconds.remainder(60)}s',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
@@ -95,7 +98,6 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
         ),
         const SizedBox(height: 8),
         SegmentedButton<Subject>(
-          // Updated to include Misc
           segments: const [
             ButtonSegment(value: Subject.varc, label: Text('VARC')),
             ButtonSegment(value: Subject.lrdi, label: Text('LRDI')),

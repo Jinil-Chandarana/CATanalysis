@@ -9,7 +9,6 @@ class ActivityHeatmap extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // This provider gives data grouped by weekday
     final activityData = ref.watch(activityHeatmapProvider);
     final daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -34,7 +33,7 @@ class ActivityHeatmap extends ConsumerWidget {
             const SizedBox(height: 24),
             Row(
               children: [
-                const SizedBox(width: 40), // Spacer for day labels
+                const SizedBox(width: 40),
                 Expanded(
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -92,10 +91,11 @@ class ActivityHeatmap extends ConsumerWidget {
                         left: left,
                         top: 0,
                         bottom: 0,
-                        width: blockWidth < 2 ? 2 : blockWidth, // Min width
+                        width: blockWidth < 2 ? 2 : blockWidth,
                         child: Tooltip(
+                          // --- FIX: Use focusDuration ---
                           message:
-                              '${session.subject.name}: ${session.duration.inMinutes} mins',
+                              '${session.subject.name}: ${session.focusDuration.inMinutes} mins',
                           child: Container(
                             decoration: BoxDecoration(
                               color: AppColors.getSubjectColor(session.subject),
