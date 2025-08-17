@@ -1,9 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:catalyst_app/theme/app_colors.dart';
+import 'package:catalyst_app/theme/app_colors.dart'; // <-- THIS IS THE FIX
 
 class LiveTimer extends StatefulWidget {
-  // Callback now includes the focusDuration
   final Function(DateTime startTime, DateTime endTime, Duration focusDuration)
       onSessionEnd;
 
@@ -14,42 +13,78 @@ class LiveTimer extends StatefulWidget {
 }
 
 class _LiveTimerState extends State<LiveTimer> {
-  Timer? _timer;
-  Duration _duration = Duration.zero; // This is the actual focus time
+  Timer? _uiTimer;
   bool _isRunning = false;
-  DateTime? _startTime;
+
+  // The total duration from all previous completed segments
+  Duration _elapsedBeforePause = Duration.zero;
+
+  // The start time of the session (first play press)
+  DateTime? _initialStartTime;
+
+  // The start time of the current running segment
+  DateTime? _segmentStartTime;
+
+  // This is the total duration displayed on screen
+  Duration get _currentDuration {
+    if (_isRunning && _segmentStartTime != null) {
+      // If running, show saved time PLUS current segment's time
+      return _elapsedBeforePause +
+          DateTime.now().difference(_segmentStartTime!);
+    } else {
+      // If paused, just show the saved time
+      return _elapsedBeforePause;
+    }
+  }
 
   void _startTimer() {
     setState(() {
       _isRunning = true;
-      _startTime ??= DateTime.now();
+      _initialStartTime ??= DateTime.now(); // Set only once
+      _segmentStartTime = DateTime.now(); // Reset every time we resume
     });
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      setState(() {
-        _duration = Duration(seconds: _duration.inSeconds + 1);
-      });
+
+    // This timer is ONLY for updating the UI every second
+    _uiTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      setState(() {}); // Just rebuild the widget to update the displayed time
     });
   }
 
   void _pauseTimer() {
+    _uiTimer?.cancel();
+    if (_segmentStartTime != null) {
+      // Calculate the duration of the segment that just ended
+      final segmentDuration = DateTime.now().difference(_segmentStartTime!);
+      // Add it to our running total
+      _elapsedBeforePause += segmentDuration;
+    }
     setState(() {
       _isRunning = false;
-      _timer?.cancel();
     });
   }
 
   void _endSession() {
-    _timer?.cancel();
-    final endTime = DateTime.now();
-    if (_startTime != null) {
-      // Pass the actual timed duration back
-      widget.onSessionEnd(_startTime!, endTime, _duration);
+    _uiTimer?.cancel();
+
+    // Make sure we have a start time before ending
+    if (_initialStartTime == null) return;
+
+    Duration finalFocusDuration = _elapsedBeforePause;
+
+    // If the timer was running when 'End' was pressed, add the final segment's time
+    if (_isRunning && _segmentStartTime != null) {
+      final finalSegmentDuration =
+          DateTime.now().difference(_segmentStartTime!);
+      finalFocusDuration += finalSegmentDuration;
     }
+
+    // Pass the initial start time, current end time, and the accurately calculated focus duration
+    widget.onSessionEnd(_initialStartTime!, DateTime.now(), finalFocusDuration);
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _uiTimer?.cancel();
     super.dispose();
   }
 
@@ -72,7 +107,7 @@ class _LiveTimerState extends State<LiveTimer> {
       child: Column(
         children: [
           Text(
-            _formatDuration(_duration),
+            _formatDuration(_currentDuration),
             style: Theme.of(context).textTheme.displayMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: Theme.of(context).colorScheme.onPrimaryContainer,
@@ -92,7 +127,8 @@ class _LiveTimerState extends State<LiveTimer> {
                 ),
               ),
               ElevatedButton.icon(
-                onPressed: _duration > Duration.zero ? _endSession : null,
+                onPressed:
+                    _currentDuration > Duration.zero ? _endSession : null,
                 icon: const Icon(Icons.stop),
                 label: const Text('End Session'),
                 style: ElevatedButton.styleFrom(
