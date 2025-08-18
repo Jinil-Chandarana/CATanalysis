@@ -2,6 +2,7 @@ import 'package:hive/hive.dart';
 
 part 'study_session.g.dart';
 
+// (Enums and Extensions are unchanged)
 @HiveType(typeId: 0)
 enum Subject {
   @HiveField(0)
@@ -46,6 +47,7 @@ extension DifficultyExtension on Difficulty {
 
 @HiveType(typeId: 1)
 class StudySession extends HiveObject {
+  // (Fields are unchanged)
   @HiveField(0)
   late String id;
   @HiveField(1)
@@ -71,6 +73,7 @@ class StudySession extends HiveObject {
     required this.metrics,
   });
 
+  // (Getters for notes, review, etc., are unchanged)
   double get focusPercentage {
     if (seatingDuration.inSeconds == 0) return 0.0;
     return focusDuration.inSeconds / seatingDuration.inSeconds;
@@ -81,7 +84,7 @@ class StudySession extends HiveObject {
   List<String> get tags => (metrics['tags'] as List?)?.cast<String>() ?? [];
   String? get taskName => metrics['task_name'] as String?;
 
-  // --- GETTERS FOR VARC ---
+  // --- GETTERS FOR VARC (UPDATED) ---
   List<Map> get _rcSets => (metrics['rc_sets'] as List?)?.cast<Map>() ?? [];
   int get rcTotalAttempted =>
       _rcSets.fold(0, (prev, set) => prev + ((set['questions'] ?? 0) as int));
@@ -92,21 +95,21 @@ class StudySession extends HiveObject {
   double get rcTimePerQuestion =>
       rcTotalAttempted > 0 ? focusDuration.inSeconds / rcTotalAttempted : 0.0;
 
-  int get vaTotalAttempted => (metrics['va_attempted'] ?? 0) as int;
-  int get vaTotalCorrect => (metrics['va_correct'] ?? 0) as int;
+  // --- NEW: Logic to handle multiple VA sets ---
+  List<Map> get vaSets => (metrics['va_sets'] as List?)?.cast<Map>() ?? [];
+  int get vaTotalAttempted =>
+      vaSets.fold(0, (prev, set) => prev + ((set['attempted'] ?? 0) as int));
+  int get vaTotalCorrect =>
+      vaSets.fold(0, (prev, set) => prev + ((set['correct'] ?? 0) as int));
   double get vaAccuracy =>
       vaTotalAttempted > 0 ? vaTotalCorrect / vaTotalAttempted : 0.0;
 
-  // --- GETTERS FOR LRDI ---
+  // (Getters for LRDI and QA are unchanged)
   List<Map> get _lrdiSets => (metrics['lrdi_sets'] as List?)?.cast<Map>() ?? [];
-
-  // --- FIX: Corrected the return type to List<Map> and renamed for clarity ---
   List<Map> get lrdiSoloSets =>
       _lrdiSets.where((set) => (set['is_solo'] ?? false) as bool).toList();
-
   int get lrdiSetsAttempted => _lrdiSets.length;
-  int get lrdiSetsSoloCount => lrdiSoloSets.length; // Use the corrected getter
-
+  int get lrdiSetsSoloCount => lrdiSoloSets.length;
   int get lrdiSoloTotalAttempted => lrdiSoloSets.fold(
       0, (prev, set) => prev + ((set['questions'] ?? 0) as int));
   int get lrdiSoloTotalCorrect => lrdiSoloSets.fold(
@@ -116,8 +119,6 @@ class StudySession extends HiveObject {
       : 0.0;
   double get lrdiTimePerSet =>
       lrdiSetsAttempted > 0 ? focusDuration.inMinutes / lrdiSetsAttempted : 0.0;
-
-  // --- GETTERS FOR QA ---
   int get qaTotalAttempted => (metrics['questionsAttempted'] ?? 0) as int;
   int get qaTotalCorrect => (metrics['questionsCorrect'] ?? 0) as int;
   double get qaAccuracy =>

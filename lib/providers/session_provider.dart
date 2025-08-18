@@ -53,9 +53,6 @@ final miscSessionsProvider = Provider<List<StudySession>>((ref) {
   final allSessions = ref.watch(sessionProvider);
   return allSessions.where((s) => s.subject == Subject.misc).toList();
 });
-
-// --- THIS SECTION IS UPDATED ---
-
 final todaysProgressProvider = Provider<Map<Subject, Duration>>((ref) {
   final allSessions = ref.watch(sessionProvider);
   final today = DateTime.now();
@@ -67,7 +64,7 @@ final todaysProgressProvider = Provider<Map<Subject, Duration>>((ref) {
     Subject.varc: Duration.zero,
     Subject.lrdi: Duration.zero,
     Subject.qa: Duration.zero,
-    Subject.misc: Duration.zero,
+    Subject.misc: Duration.zero
   };
   for (var session in todaysSessions) {
     progress[session.subject] =
@@ -75,7 +72,6 @@ final todaysProgressProvider = Provider<Map<Subject, Duration>>((ref) {
   }
   return progress;
 });
-
 final dailySummaryProvider =
     Provider<Map<DateTime, Map<Subject, Duration>>>((ref) {
   final allSessions = ref.watch(sessionProvider);
@@ -91,12 +87,10 @@ final dailySummaryProvider =
   }
   return summary;
 });
-
 final sessionsForReviewProvider = Provider<List<StudySession>>((ref) {
   final allSessions = ref.watch(sessionProvider);
   return allSessions.where((s) => s.isForReview).toList();
 });
-
 final qaTagStatsProvider =
     Provider<Map<String, ({int correct, int total})>>((ref) {
   final qaSession = ref.watch(qaSessionsProvider);
@@ -114,28 +108,30 @@ final qaTagStatsProvider =
   return tagStats;
 });
 
-// --- NEW PROVIDER FOR VA TOPIC STATS ---
+// --- THIS PROVIDER IS UPDATED ---
 final vaTagStatsProvider =
     Provider<Map<String, ({int correct, int total})>>((ref) {
-  final varcSession = ref.watch(varcSessionsProvider);
+  final varcSessions = ref.watch(varcSessionsProvider);
   final Map<String, ({int correct, int total})> tagStats = {};
 
-  // We only care about sessions that were specifically for VA
-  final vaSessions = varcSession.where((s) => s.vaTotalAttempted > 0);
+  for (final session in varcSessions) {
+    // Loop through each VA set logged in the session
+    for (final vaSet in session.vaSets) {
+      final String tag = vaSet['topic'] ?? 'Unknown';
+      final int correct = vaSet['correct'] ?? 0;
+      final int attempted = vaSet['attempted'] ?? 0;
 
-  for (final session in vaSessions) {
-    for (final tag in session.tags) {
-      final currentCorrect = tagStats[tag]?.correct ?? 0;
-      final currentTotal = tagStats[tag]?.total ?? 0;
+      final currentStats = tagStats[tag] ?? (correct: 0, total: 0);
       tagStats[tag] = (
-        correct: currentCorrect + session.vaTotalCorrect,
-        total: currentTotal + session.vaTotalAttempted
+        correct: currentStats.correct + correct,
+        total: currentStats.total + attempted
       );
     }
   }
   return tagStats;
 });
 
+// (Rest of the file is unchanged)
 final miscTaskStatsProvider = Provider<Map<String, Duration>>((ref) {
   final miscSessions = ref.watch(miscSessionsProvider);
   final Map<String, Duration> taskStats = {};
@@ -148,7 +144,6 @@ final miscTaskStatsProvider = Provider<Map<String, Duration>>((ref) {
   }
   return taskStats;
 });
-
 final activityHeatmapProvider = Provider<Map<int, List<StudySession>>>((ref) {
   final allSessions = ref.watch(sessionProvider);
   final recentSessions = allSessions.where((s) =>
@@ -163,7 +158,6 @@ final activityHeatmapProvider = Provider<Map<int, List<StudySession>>>((ref) {
   }
   return groupedByDay;
 });
-
 final dailyActivityProvider =
     Provider.family<DailyActivity, DateTime>((ref, day) {
   final allSessions = ref.watch(sessionProvider);
@@ -200,6 +194,6 @@ final dailyActivityProvider =
   return (
     totalDuration: totalDuration,
     hourlyBreakdown: hourlyBreakdown,
-    sessionsBySubject: sessionsBySubject,
+    sessionsBySubject: sessionsBySubject
   );
 });

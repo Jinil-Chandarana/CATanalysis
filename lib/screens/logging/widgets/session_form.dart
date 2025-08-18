@@ -13,6 +13,12 @@ class RcSetControllers {
   Difficulty difficulty = Difficulty.medium;
 }
 
+class VaSetControllers {
+  final TextEditingController attempted = TextEditingController();
+  final TextEditingController correct = TextEditingController();
+  String? topic;
+}
+
 class LrdiSetControllers {
   final TextEditingController questions = TextEditingController();
   final TextEditingController correct = TextEditingController();
@@ -39,13 +45,10 @@ class SessionForm extends ConsumerStatefulWidget {
 }
 
 class _SessionFormState extends ConsumerState<SessionForm> {
+  // (State variables and controllers are unchanged)
   final _formKey = GlobalKey<FormState>();
-
-  // (State variables are unchanged)
   final List<RcSetControllers> _rcSets = [];
-  final TextEditingController _vaAttemptedController = TextEditingController();
-  final TextEditingController _vaCorrectController = TextEditingController();
-  String? _selectedVaTopic;
+  final List<VaSetControllers> _vaSets = [];
   final List<String> _vaTopics = const [
     'Para Completion',
     'Para Jumbles',
@@ -67,12 +70,17 @@ class _SessionFormState extends ConsumerState<SessionForm> {
   final TextEditingController _notesController = TextEditingController();
   bool _isForReview = false;
 
-  // (initState and dispose are unchanged)
+  // (initState, dispose, add/remove methods are unchanged)
   @override
   void initState() {
     super.initState();
-    if (widget.subject == Subject.varc) _addRcSet();
-    if (widget.subject == Subject.lrdi) _addLrdiSet();
+    if (widget.subject == Subject.varc) {
+      _addRcSet();
+      _addVaSet();
+    }
+    if (widget.subject == Subject.lrdi) {
+      _addLrdiSet();
+    }
   }
 
   @override
@@ -81,8 +89,10 @@ class _SessionFormState extends ConsumerState<SessionForm> {
       c.questions.dispose();
       c.correct.dispose();
     });
-    _vaAttemptedController.dispose();
-    _vaCorrectController.dispose();
+    _vaSets.forEach((c) {
+      c.attempted.dispose();
+      c.correct.dispose();
+    });
     _lrdiSets.forEach((c) {
       c.questions.dispose();
       c.correct.dispose();
@@ -96,6 +106,8 @@ class _SessionFormState extends ConsumerState<SessionForm> {
 
   void _addRcSet() => setState(() => _rcSets.add(RcSetControllers()));
   void _removeRcSet(int index) => setState(() => _rcSets.removeAt(index));
+  void _addVaSet() => setState(() => _vaSets.add(VaSetControllers()));
+  void _removeVaSet(int index) => setState(() => _vaSets.removeAt(index));
   void _addLrdiSet() => setState(() => _lrdiSets.add(LrdiSetControllers()));
   void _removeLrdiSet(int index) => setState(() => _lrdiSets.removeAt(index));
 
@@ -109,12 +121,12 @@ class _SessionFormState extends ConsumerState<SessionForm> {
             const SnackBar(content: Text('Please select a QA topic.')));
         return;
       }
-      if (widget.subject == Subject.varc &&
-          getInt(_vaAttemptedController) > 0 &&
-          _selectedVaTopic == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please select a VA topic.')));
-        return;
+      for (final vaSet in _vaSets) {
+        if (getInt(vaSet.attempted) > 0 && vaSet.topic == null) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Please select a topic for each VA set.')));
+          return;
+        }
       }
       final metrics = <String, dynamic>{};
       final seatingDuration = widget.endTime.difference(widget.startTime);
@@ -127,11 +139,14 @@ class _SessionFormState extends ConsumerState<SessionForm> {
                     'difficulty': c.difficulty.index
                   })
               .toList();
-          metrics['va_attempted'] = getInt(_vaAttemptedController);
-          metrics['va_correct'] = getInt(_vaCorrectController);
-          if (_selectedVaTopic != null) {
-            metrics['tags'] = [_selectedVaTopic!];
-          }
+          metrics['va_sets'] = _vaSets
+              .where((c) => getInt(c.attempted) > 0)
+              .map((c) => {
+                    'attempted': getInt(c.attempted),
+                    'correct': getInt(c.correct),
+                    'topic': c.topic
+                  })
+              .toList();
           break;
         case Subject.lrdi:
           metrics['lrdi_sets'] = _lrdiSets
@@ -168,7 +183,7 @@ class _SessionFormState extends ConsumerState<SessionForm> {
     }
   }
 
-  // --- THIS SECTION IS UPDATED ---
+  // (build method is unchanged)
   @override
   Widget build(BuildContext context) {
     return Form(
@@ -179,11 +194,9 @@ class _SessionFormState extends ConsumerState<SessionForm> {
           ..._buildFormFields(),
           const SizedBox(height: 16),
           Card(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-              child: _buildGlobalFields(),
-            ),
-          ),
+              child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  child: _buildGlobalFields())),
           const SizedBox(height: 24),
           ElevatedButton(
             onPressed: _saveSession,
@@ -199,6 +212,7 @@ class _SessionFormState extends ConsumerState<SessionForm> {
     );
   }
 
+  // --- THIS SECTION IS UPDATED ---
   List<Widget> _buildFormFields() {
     switch (widget.subject) {
       case Subject.varc:
@@ -213,43 +227,40 @@ class _SessionFormState extends ConsumerState<SessionForm> {
   }
 
   List<Widget> _buildVarcForm() {
-    int getInt(TextEditingController controller) =>
-        int.tryParse(controller.text) ?? 0;
     return [
-      if (_rcSets.isNotEmpty || getInt(_vaAttemptedController) == 0)
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Reading Comprehension",
-                    style: Theme.of(context).textTheme.titleLarge),
-                ..._rcSets.asMap().entries.map((entry) {
-                  return _buildSetSubCard(
-                    index: entry.key,
-                    title: "RC Set ${entry.key + 1}",
-                    onRemove: () => _removeRcSet(entry.key),
-                    children: [
-                      _buildDifficultySelector(
-                          (d) =>
-                              setState(() => _rcSets[entry.key].difficulty = d),
-                          _rcSets[entry.key].difficulty),
-                      _buildTextField(
-                          _rcSets[entry.key].questions, 'Number of Questions'),
-                      _buildTextField(
-                          _rcSets[entry.key].correct, 'Number Correct'),
-                    ],
-                  );
-                }).toList(),
-                TextButton.icon(
-                    icon: const Icon(Icons.add),
-                    label: const Text("Add RC Set"),
-                    onPressed: _addRcSet),
-              ],
-            ),
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("Reading Comprehension",
+                  style: Theme.of(context).textTheme.titleLarge),
+              ..._rcSets.asMap().entries.map((entry) {
+                return _buildSetSubCard(
+                  index: entry.key,
+                  title: "RC Set ${entry.key + 1}",
+                  onRemove: () => _removeRcSet(entry.key),
+                  children: [
+                    _buildDifficultySelector(
+                        (d) =>
+                            setState(() => _rcSets[entry.key].difficulty = d),
+                        _rcSets[entry.key].difficulty),
+                    _buildTextField(
+                        _rcSets[entry.key].questions, 'Number of Questions'),
+                    _buildTextField(
+                        _rcSets[entry.key].correct, 'Number Correct'),
+                  ],
+                );
+              }).toList(),
+              TextButton.icon(
+                  icon: const Icon(Icons.add),
+                  label: const Text("Add RC Set"),
+                  onPressed: _addRcSet),
+            ],
           ),
         ),
+      ),
       const SizedBox(height: 16),
       Card(
         child: Padding(
@@ -259,31 +270,53 @@ class _SessionFormState extends ConsumerState<SessionForm> {
             children: [
               Text("Verbal Ability",
                   style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 8),
-              _buildTextField(_vaAttemptedController, 'Number Attempted'),
-              _buildTextField(_vaCorrectController, 'Number Correct'),
-              const SizedBox(height: 16),
-              Text("Topic", style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8.0,
-                runSpacing: 8.0,
-                children: _vaTopics.map((topic) {
-                  return ChoiceChip(
-                    label: Text(topic),
-                    selected: _selectedVaTopic == topic,
-                    onSelected: (isSelected) => setState(
-                        () => isSelected ? _selectedVaTopic = topic : null),
-                    // --- COLOR FIX: Removed custom colors to use default theme blue ---
-                  );
-                }).toList(),
-              ),
+              ..._vaSets.asMap().entries.map((entry) {
+                return _buildSetSubCard(
+                  index: entry.key,
+                  title: "VA Set ${entry.key + 1}",
+                  onRemove: () => _removeVaSet(entry.key),
+                  children: [
+                    _buildTextField(
+                        _vaSets[entry.key].attempted, 'Number Attempted'),
+                    _buildTextField(
+                        _vaSets[entry.key].correct, 'Number Correct'),
+                    const SizedBox(height: 16),
+                    Text("Topic",
+                        style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    // --- THIS IS THE FIX: Replaced Dropdown with ChoiceChip grid ---
+                    Wrap(
+                      spacing: 8.0,
+                      runSpacing: 8.0,
+                      children: _vaTopics.map((topic) {
+                        return ChoiceChip(
+                          label: Text(topic),
+                          selected: _vaSets[entry.key].topic == topic,
+                          onSelected: (isSelected) {
+                            setState(() {
+                              if (isSelected) {
+                                _vaSets[entry.key].topic = topic;
+                              }
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                );
+              }).toList(),
+              TextButton.icon(
+                  icon: const Icon(Icons.add),
+                  label: const Text("Add VA Set"),
+                  onPressed: _addVaSet),
             ],
           ),
         ),
       ),
     ];
   }
+
+  // (The rest of the file is unchanged.)
 
   List<Widget> _buildLrdiForm() {
     return [
@@ -364,7 +397,6 @@ class _SessionFormState extends ConsumerState<SessionForm> {
                     selected: _selectedQaTopic == topic,
                     onSelected: (isSelected) => setState(
                         () => isSelected ? _selectedQaTopic = topic : null),
-                    // --- COLOR FIX: Removed custom colors to use default theme blue ---
                   );
                 }).toList(),
               ),
@@ -439,7 +471,6 @@ class _SessionFormState extends ConsumerState<SessionForm> {
     );
   }
 
-  // --- UI FIX: Upgraded to ChoiceChips for consistency ---
   Widget _buildDifficultySelector(
       Function(Difficulty) onSelectionChanged, Difficulty groupValue) {
     return Wrap(
@@ -453,7 +484,6 @@ class _SessionFormState extends ConsumerState<SessionForm> {
               onSelectionChanged(d);
             }
           },
-          // --- COLOR FIX: Removed custom colors to use default theme blue ---
         );
       }).toList(),
     );

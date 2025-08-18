@@ -13,7 +13,6 @@ class SectionDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // This build method is correct and remains unchanged
     final sessionsProvider = switch (subject) {
       Subject.varc => varcSessionsProvider,
       Subject.lrdi => lrdiSessionsProvider,
@@ -67,12 +66,10 @@ class SectionDetailScreen extends ConsumerWidget {
     );
   }
 
-  // --- WIDGET REDESIGNED with a clean Linear Progress Bar ---
   Widget _buildSessionCard(
       BuildContext context, StudySession session, WidgetRef ref) {
-    // Create a single list of all stat widgets for this session
     final List<Widget> statRows = [
-      ..._getMetricsWidgets(session), // Subject-specific metrics
+      ..._getMetricsWidgets(session),
     ];
 
     return Card(
@@ -80,12 +77,10 @@ class SectionDetailScreen extends ConsumerWidget {
       elevation: 4,
       shadowColor: Colors.black.withOpacity(0.08),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      clipBehavior:
-          Clip.antiAlias, // Important for the notes section background
+      clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // --- HEADER: Date, Time, and Delete Button ---
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 8, 12),
             child: Row(
@@ -118,17 +113,12 @@ class SectionDetailScreen extends ConsumerWidget {
               ],
             ),
           ),
-
-          // --- DIVIDER: Cleanly separates header from data ---
           const Divider(height: 1),
-
-          // --- STATS AND PROGRESS BAR SECTION ---
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // The list of text-based stats
                 ListView.separated(
                   itemCount: statRows.length,
                   shrinkWrap: true,
@@ -137,15 +127,12 @@ class SectionDetailScreen extends ConsumerWidget {
                   separatorBuilder: (context, index) =>
                       const SizedBox(height: 10),
                 ),
-                // --- THIS IS THE ONLY CHANGE: Reduced the spacing from 16 to 12 ---
+                // --- SPACING FIX: Reduced from 16 to 12 ---
                 const SizedBox(height: 12),
-                // The new, cool linear progress bar
                 _buildFocusIndicatorBar(session),
               ],
             ),
           ),
-
-          // --- NOTES SECTION (if available) ---
           if (session.notes != null && session.notes!.isNotEmpty)
             _buildNotesSection(session),
         ],
@@ -153,7 +140,6 @@ class SectionDetailScreen extends ConsumerWidget {
     );
   }
 
-  // --- NEW WIDGET: The Linear Progress Indicator Bar ---
   Widget _buildFocusIndicatorBar(StudySession session) {
     final subjectColor = AppColors.getSubjectColor(session.subject);
     String formatDuration(Duration d) =>
@@ -162,7 +148,6 @@ class SectionDetailScreen extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Title for the bar
         Text(
           'Focus Efficiency',
           style: TextStyle(
@@ -171,10 +156,8 @@ class SectionDetailScreen extends ConsumerWidget {
               color: Colors.grey.shade600),
         ),
         const SizedBox(height: 8),
-        // The bar itself, built with a Stack and Containers
         Stack(
           children: [
-            // The background of the bar
             Container(
               height: 10,
               decoration: BoxDecoration(
@@ -182,7 +165,6 @@ class SectionDetailScreen extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(5),
               ),
             ),
-            // The foreground (progress) of the bar
             LayoutBuilder(
               builder: (context, constraints) => Container(
                 height: 10,
@@ -196,7 +178,6 @@ class SectionDetailScreen extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 6),
-        // Labels below the bar
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -217,7 +198,6 @@ class SectionDetailScreen extends ConsumerWidget {
     );
   }
 
-  // --- HELPER: The simple, clean "bill-style" row ---
   Widget _buildMetricRow(String label, String value) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -237,7 +217,6 @@ class SectionDetailScreen extends ConsumerWidget {
     );
   }
 
-  // --- HELPER: A dedicated, styled notes section ---
   Widget _buildNotesSection(StudySession session) {
     return Container(
       width: double.infinity,
@@ -263,7 +242,7 @@ class SectionDetailScreen extends ConsumerWidget {
     );
   }
 
-  // --- HELPER: Gathers all subject-specific metric widgets ---
+  // --- THIS HELPER IS UPDATED ---
   List<Widget> _getMetricsWidgets(StudySession session) {
     String formatAccuracy(double acc, int correct, int total) {
       if (total == 0) return '0.0% ($correct/$total)';
@@ -290,13 +269,20 @@ class SectionDetailScreen extends ConsumerWidget {
                 set['questions']),
           ));
         }
-        if (session.vaTotalAttempted > 0) {
+        // --- NEW: Display multiple VA sets ---
+        for (var set in session.vaSets) {
           metrics.add(_buildMetricRow(
-              'VA: ${session.tags.isNotEmpty ? session.tags.first : ""}',
-              formatAccuracy(session.vaAccuracy, session.vaTotalCorrect,
-                  session.vaTotalAttempted)));
+            'VA: ${set['topic'] ?? 'Unknown'}',
+            formatAccuracy(
+                (set['attempted'] ?? 0) > 0
+                    ? (set['correct'] as int) / (set['attempted'] as int)
+                    : 0.0,
+                set['correct'],
+                set['attempted']),
+          ));
         }
         break;
+      // (Other cases are unchanged)
       case Subject.lrdi:
         for (var set in (session.metrics['lrdi_sets'] as List)) {
           metrics.add(_buildMetricRow(
@@ -330,7 +316,7 @@ class SectionDetailScreen extends ConsumerWidget {
     return metrics;
   }
 
-  // --- UNCHANGED WIDGETS BELOW ---
+  // (Stat widgets are unchanged)
   Widget _buildVaTopicStats(BuildContext context, WidgetRef ref) {
     final tagStats = ref.watch(vaTagStatsProvider);
     if (tagStats.isEmpty) return const SizedBox.shrink();
@@ -356,9 +342,8 @@ class SectionDetailScreen extends ConsumerWidget {
                   children: [
                     Text(entry.key),
                     Text(
-                      '${(entry.value.correct / entry.value.total * 100).toStringAsFixed(1)}% (${entry.value.correct}/${entry.value.total})',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
+                        '${(entry.value.correct / entry.value.total * 100).toStringAsFixed(1)}% (${entry.value.correct}/${entry.value.total})',
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
                   ],
                 ),
               ),
@@ -393,9 +378,8 @@ class SectionDetailScreen extends ConsumerWidget {
                   children: [
                     Text(entry.key),
                     Text(
-                      '${(entry.value.correct / entry.value.total * 100).toStringAsFixed(1)}% (${entry.value.correct}/${entry.value.total})',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
+                        '${(entry.value.correct / entry.value.total * 100).toStringAsFixed(1)}% (${entry.value.correct}/${entry.value.total})',
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
                   ],
                 ),
               ),
