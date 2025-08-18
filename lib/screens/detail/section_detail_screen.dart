@@ -137,7 +137,8 @@ class SectionDetailScreen extends ConsumerWidget {
                   separatorBuilder: (context, index) =>
                       const SizedBox(height: 10),
                 ),
-                const SizedBox(height: 16),
+                // --- THIS IS THE ONLY CHANGE: Reduced the spacing from 16 to 12 ---
+                const SizedBox(height: 12),
                 // The new, cool linear progress bar
                 _buildFocusIndicatorBar(session),
               ],
