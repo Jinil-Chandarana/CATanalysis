@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:catalyst_app/models/study_session.dart';
+import 'package:catalyst_app/theme/app_colors.dart';
 import 'widgets/live_timer.dart';
 import 'widgets/session_form.dart';
 
 class LogSessionScreen extends StatefulWidget {
   const LogSessionScreen({super.key});
-
   @override
   State<LogSessionScreen> createState() => _LogSessionScreenState();
 }
@@ -14,7 +14,6 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
   Subject _selectedSubject = Subject.varc;
   Duration _finalFocusDuration = Duration.zero;
   bool _isSessionEnded = false;
-
   DateTime? _startTime;
   DateTime? _endTime;
 
@@ -23,7 +22,7 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
     setState(() {
       _startTime = startTime;
       _endTime = endTime;
-      _finalFocusDuration = focusDuration; // This is the actual timed duration
+      _finalFocusDuration = focusDuration;
       _isSessionEnded = true;
     });
   }
@@ -52,7 +51,7 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
                 subject: _selectedSubject,
                 startTime: _startTime!,
                 endTime: _endTime!,
-                focusDuration: _finalFocusDuration, // Pass the focus duration
+                focusDuration: _finalFocusDuration,
               ),
           ],
         ),
@@ -70,9 +69,8 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
             'Session Complete!',
             style: Theme.of(context).textTheme.headlineSmall,
           ),
-          // This now correctly shows the FOCUS time
           Text(
-            'Focus Time: ${_finalFocusDuration.inHours}h ${_finalFocusDuration.inMinutes.remainder(60)}m ${_finalFocusDuration.inSeconds.remainder(60)}s',
+            'Focus Time: ${_finalFocusDuration.inHours}h ${_finalFocusDuration.inMinutes.remainder(60)}m',
             style: Theme.of(context).textTheme.titleMedium,
           ),
           const SizedBox(height: 8),
@@ -86,6 +84,7 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
   }
 
   Widget _buildSubjectSelector() {
+    final subjects = [Subject.varc, Subject.lrdi, Subject.qa, Subject.misc];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -96,23 +95,24 @@ class _LogSessionScreenState extends State<LogSessionScreen> {
               .titleMedium
               ?.copyWith(fontWeight: FontWeight.bold),
         ),
-        const SizedBox(height: 8),
-        SegmentedButton<Subject>(
-          segments: const [
-            ButtonSegment(value: Subject.varc, label: Text('VARC')),
-            ButtonSegment(value: Subject.lrdi, label: Text('LRDI')),
-            ButtonSegment(value: Subject.qa, label: Text('QA')),
-            ButtonSegment(value: Subject.misc, label: Text('Misc')),
-          ],
-          selected: {_selectedSubject},
-          onSelectionChanged: (newSelection) {
-            setState(() {
-              _selectedSubject = newSelection.first;
-            });
-          },
-          style: SegmentedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-              textStyle: const TextStyle(fontWeight: FontWeight.w600)),
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 8.0,
+          runSpacing: 8.0,
+          children: subjects.map((subject) {
+            return ChoiceChip(
+              label: Text(subject.name),
+              selected: _selectedSubject == subject,
+              onSelected: (isSelected) {
+                if (isSelected) {
+                  setState(() {
+                    _selectedSubject = subject;
+                  });
+                }
+              },
+              // --- COLOR FIX: Removed custom colors to use default theme blue ---
+            );
+          }).toList(),
         ),
       ],
     );

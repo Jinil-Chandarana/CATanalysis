@@ -9,6 +9,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  percent_indicator: ^4.2.3
   
   # State Management
   flutter_riverpod: ^2.5.1

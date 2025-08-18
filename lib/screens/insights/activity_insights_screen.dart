@@ -45,11 +45,10 @@ class _ActivityInsightsScreenState extends State<ActivityInsightsScreen>
       body: TabBarView(
         controller: _tabController,
         children: const [
-          // View for the "Daily" tab
           _DailyActivityView(),
-          // View for the "Weekly" tab
+          // --- FIX: Reduced padding for a wider, more modern look ---
           Padding(
-            padding: EdgeInsets.all(16.0),
+            padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 16.0),
             child: ActivityHeatmap(),
           ),
         ],
@@ -58,7 +57,8 @@ class _ActivityInsightsScreenState extends State<ActivityInsightsScreen>
   }
 }
 
-// A new private widget to hold the logic for the daily view
+// ... (Rest of the file is unchanged, only the part above was modified)
+
 class _DailyActivityView extends ConsumerStatefulWidget {
   const _DailyActivityView();
 

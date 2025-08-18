@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:catalyst_app/theme/app_colors.dart'; // <-- THIS IS THE FIX
+import 'package:catalyst_app/theme/app_colors.dart';
 
 class DaySelector extends StatefulWidget {
   final Function(DateTime) onDateSelected;
-
   const DaySelector({super.key, required this.onDateSelected});
-
   @override
   State<DaySelector> createState() => _DaySelectorState();
 }
@@ -15,20 +13,15 @@ class _DaySelectorState extends State<DaySelector> {
   late final List<DateTime> _days;
   late DateTime _selectedDay;
   late final ScrollController _scrollController;
-
   @override
   void initState() {
     super.initState();
     final now = DateTime.now();
     _selectedDay = DateTime(now.year, now.month, now.day);
-
-    // Generate the last 30 days
     _days = List.generate(30, (i) {
       final date = now.subtract(Duration(days: i));
       return DateTime(date.year, date.month, date.day);
     }).reversed.toList();
-
-    // Scroll to today's date on initial build
     final todayIndex =
         _days.indexWhere((day) => day.isAtSameMomentAs(_selectedDay));
     _scrollController =
@@ -52,7 +45,6 @@ class _DaySelectorState extends State<DaySelector> {
         itemBuilder: (context, index) {
           final day = _days[index];
           final isSelected = day.isAtSameMomentAs(_selectedDay);
-
           return GestureDetector(
             onTap: () {
               setState(() => _selectedDay = day);
@@ -62,6 +54,7 @@ class _DaySelectorState extends State<DaySelector> {
               width: 60,
               margin: const EdgeInsets.symmetric(horizontal: 4),
               decoration: BoxDecoration(
+                // --- COLOR FIX: Use the default theme primary color for selections ---
                 color: isSelected
                     ? Theme.of(context).primaryColor
                     : AppColors.cardBackground,
@@ -74,7 +67,7 @@ class _DaySelectorState extends State<DaySelector> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    DateFormat.E().format(day), // "Mon", "Tue"
+                    DateFormat.E().format(day),
                     style: TextStyle(
                       color: isSelected ? Colors.white : Colors.grey,
                       fontWeight: FontWeight.bold,
@@ -82,7 +75,7 @@ class _DaySelectorState extends State<DaySelector> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    DateFormat.d().format(day), // "15"
+                    DateFormat.d().format(day),
                     style: TextStyle(
                       color: isSelected ? Colors.white : Colors.black,
                       fontSize: 18,

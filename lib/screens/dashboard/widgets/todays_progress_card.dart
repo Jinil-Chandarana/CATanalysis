@@ -10,21 +10,20 @@ class TodaysProgressCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final todaysProgress = ref.watch(todaysProgressProvider);
 
-    // This is the new, more descriptive formatting function
+    // --- FIX: Updated formatting function ---
     String formatDuration(Duration duration) {
-      if (duration.inMinutes == 0) return "0 mins";
+      if (duration.inMinutes == 0) return "0m";
 
       final hours = duration.inHours;
       final minutes = duration.inMinutes.remainder(60);
 
       final parts = <String>[];
       if (hours > 0) {
-        parts.add('$hours hr${hours > 1 ? 's' : ''}');
+        parts.add('${hours}h');
       }
       if (minutes > 0) {
-        parts.add('$minutes min${minutes > 1 ? 's' : ''}');
+        parts.add('${minutes}m');
       }
-
       return parts.join(' ');
     }
 
@@ -60,6 +59,11 @@ class TodaysProgressCard extends ConsumerWidget {
                   formatDuration(todaysProgress[Subject.lrdi]!)),
               _buildProgressItem(
                   context, 'QA', formatDuration(todaysProgress[Subject.qa]!)),
+              _buildProgressItem(
+                  // New
+                  context,
+                  'Misc',
+                  formatDuration(todaysProgress[Subject.misc]!)),
             ],
           ),
         ],
@@ -72,9 +76,10 @@ class TodaysProgressCard extends ConsumerWidget {
       children: [
         Text(
           value,
+          // --- FIX: Slightly smaller font size ---
           style: Theme.of(context)
               .textTheme
-              .titleLarge
+              .titleMedium
               ?.copyWith(fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 4),

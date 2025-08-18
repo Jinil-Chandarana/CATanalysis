@@ -57,13 +57,13 @@ class HourlyActivityChart extends StatelessWidget {
                   final hour = value.toInt();
                   if (hour % 6 == 0) {
                     if (hour == 0)
-                      return const Text('12a', style: TextStyle(fontSize: 10));
+                      return const Text('12am', style: TextStyle(fontSize: 10));
                     if (hour == 6)
-                      return const Text('6a', style: TextStyle(fontSize: 10));
+                      return const Text('6am', style: TextStyle(fontSize: 10));
                     if (hour == 12)
-                      return const Text('12p', style: TextStyle(fontSize: 10));
+                      return const Text('12pm', style: TextStyle(fontSize: 10));
                     if (hour == 18)
-                      return const Text('6p', style: TextStyle(fontSize: 10));
+                      return const Text('6pm', style: TextStyle(fontSize: 10));
                   }
                   return const SizedBox.shrink();
                 },

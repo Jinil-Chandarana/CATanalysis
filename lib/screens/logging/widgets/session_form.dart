@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import 'package:catalyst_app/models/study_session.dart';
 import 'package:catalyst_app/providers/session_provider.dart';
+import 'package:catalyst_app/theme/app_colors.dart';
 
+// (Helper classes are unchanged)
 class RcSetControllers {
   final TextEditingController questions = TextEditingController();
   final TextEditingController correct = TextEditingController();
@@ -22,7 +24,7 @@ class SessionForm extends ConsumerStatefulWidget {
   final Subject subject;
   final DateTime startTime;
   final DateTime endTime;
-  final Duration focusDuration; // New
+  final Duration focusDuration;
 
   const SessionForm({
     super.key,
@@ -38,17 +40,34 @@ class SessionForm extends ConsumerStatefulWidget {
 
 class _SessionFormState extends ConsumerState<SessionForm> {
   final _formKey = GlobalKey<FormState>();
+
+  // (State variables are unchanged)
   final List<RcSetControllers> _rcSets = [];
   final TextEditingController _vaAttemptedController = TextEditingController();
   final TextEditingController _vaCorrectController = TextEditingController();
+  String? _selectedVaTopic;
+  final List<String> _vaTopics = const [
+    'Para Completion',
+    'Para Jumbles',
+    'Odd Sentence',
+    'Summary',
+  ];
   final List<LrdiSetControllers> _lrdiSets = [];
   final TextEditingController _qaAttemptedController = TextEditingController();
   final TextEditingController _qaCorrectController = TextEditingController();
-  final TextEditingController _qaTagsController = TextEditingController();
+  String? _selectedQaTopic;
+  final List<String> _qaTopics = const [
+    'Arithmetic',
+    'Algebra',
+    'Geometry',
+    'Modern Math',
+    'Number System',
+  ];
   final TextEditingController _taskNameController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
   bool _isForReview = false;
 
+  // (initState and dispose are unchanged)
   @override
   void initState() {
     super.initState();
@@ -58,19 +77,18 @@ class _SessionFormState extends ConsumerState<SessionForm> {
 
   @override
   void dispose() {
-    for (var set in _rcSets) {
-      set.questions.dispose();
-      set.correct.dispose();
-    }
+    _rcSets.forEach((c) {
+      c.questions.dispose();
+      c.correct.dispose();
+    });
     _vaAttemptedController.dispose();
     _vaCorrectController.dispose();
-    for (var set in _lrdiSets) {
-      set.questions.dispose();
-      set.correct.dispose();
-    }
+    _lrdiSets.forEach((c) {
+      c.questions.dispose();
+      c.correct.dispose();
+    });
     _qaAttemptedController.dispose();
     _qaCorrectController.dispose();
-    _qaTagsController.dispose();
     _taskNameController.dispose();
     _notesController.dispose();
     super.dispose();
@@ -78,29 +96,42 @@ class _SessionFormState extends ConsumerState<SessionForm> {
 
   void _addRcSet() => setState(() => _rcSets.add(RcSetControllers()));
   void _removeRcSet(int index) => setState(() => _rcSets.removeAt(index));
-
   void _addLrdiSet() => setState(() => _lrdiSets.add(LrdiSetControllers()));
   void _removeLrdiSet(int index) => setState(() => _lrdiSets.removeAt(index));
 
+  // (_saveSession method is unchanged)
   void _saveSession() {
+    int getInt(TextEditingController controller) =>
+        int.tryParse(controller.text) ?? 0;
     if (_formKey.currentState!.validate()) {
+      if (widget.subject == Subject.qa && _selectedQaTopic == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please select a QA topic.')));
+        return;
+      }
+      if (widget.subject == Subject.varc &&
+          getInt(_vaAttemptedController) > 0 &&
+          _selectedVaTopic == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please select a VA topic.')));
+        return;
+      }
       final metrics = <String, dynamic>{};
       final seatingDuration = widget.endTime.difference(widget.startTime);
-
-      int getInt(TextEditingController controller) =>
-          int.tryParse(controller.text) ?? 0;
-
       switch (widget.subject) {
         case Subject.varc:
           metrics['rc_sets'] = _rcSets
               .map((c) => {
                     'questions': getInt(c.questions),
                     'correct': getInt(c.correct),
-                    'difficulty': c.difficulty.index,
+                    'difficulty': c.difficulty.index
                   })
               .toList();
           metrics['va_attempted'] = getInt(_vaAttemptedController);
           metrics['va_correct'] = getInt(_vaCorrectController);
+          if (_selectedVaTopic != null) {
+            metrics['tags'] = [_selectedVaTopic!];
+          }
           break;
         case Subject.lrdi:
           metrics['lrdi_sets'] = _lrdiSets
@@ -108,42 +139,36 @@ class _SessionFormState extends ConsumerState<SessionForm> {
                     'questions': getInt(c.questions),
                     'correct': getInt(c.correct),
                     'is_solo': c.isSolo,
-                    'difficulty': c.difficulty.index,
+                    'difficulty': c.difficulty.index
                   })
               .toList();
           break;
         case Subject.qa:
           metrics['questionsAttempted'] = getInt(_qaAttemptedController);
           metrics['questionsCorrect'] = getInt(_qaCorrectController);
-          metrics['tags'] = _qaTagsController.text
-              .split(',')
-              .map((s) => s.trim())
-              .where((s) => s.isNotEmpty)
-              .toList();
+          metrics['tags'] = [_selectedQaTopic!];
           break;
         case Subject.misc:
           metrics['task_name'] = _taskNameController.text.trim();
           break;
       }
-
       metrics['notes'] = _notesController.text;
       metrics['is_for_review'] = _isForReview;
-
       final newSession = StudySession(
         id: const Uuid().v4(),
         subject: widget.subject,
         startTime: widget.startTime,
         endTime: widget.endTime,
-        focusDuration: widget.focusDuration, // Save focus duration
-        seatingDuration: seatingDuration, // Save seating duration
+        focusDuration: widget.focusDuration,
+        seatingDuration: seatingDuration,
         metrics: metrics,
       );
-
       ref.read(sessionProvider.notifier).addSession(newSession);
       Navigator.of(context).pop();
     }
   }
 
+  // --- THIS SECTION IS UPDATED ---
   @override
   Widget build(BuildContext context) {
     return Form(
@@ -152,15 +177,20 @@ class _SessionFormState extends ConsumerState<SessionForm> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           ..._buildFormFields(),
-          const Divider(height: 40),
-          _buildGlobalFields(),
+          const SizedBox(height: 16),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: _buildGlobalFields(),
+            ),
+          ),
           const SizedBox(height: 24),
           ElevatedButton(
             onPressed: _saveSession,
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              foregroundColor: Theme.of(context).colorScheme.onPrimary,
+              backgroundColor: AppColors.accent,
+              foregroundColor: Colors.white,
             ),
             child: const Text('Save Session', style: TextStyle(fontSize: 16)),
           ),
@@ -168,8 +198,6 @@ class _SessionFormState extends ConsumerState<SessionForm> {
       ),
     );
   }
-
-  // ... (rest of the file is unchanged, only copy the part above) ...
 
   List<Widget> _buildFormFields() {
     switch (widget.subject) {
@@ -185,88 +213,176 @@ class _SessionFormState extends ConsumerState<SessionForm> {
   }
 
   List<Widget> _buildVarcForm() {
+    int getInt(TextEditingController controller) =>
+        int.tryParse(controller.text) ?? 0;
     return [
-      Text("Reading Comprehension",
-          style: Theme.of(context).textTheme.titleLarge),
-      ..._rcSets.asMap().entries.map((entry) {
-        int index = entry.key;
-        RcSetControllers controllers = entry.value;
-        return _buildSetCard(
-          index: index,
-          title: "RC Set ${index + 1}",
-          onRemove: () => _removeRcSet(index),
-          children: [
-            _buildDifficultySelector((newDifficulty) {
-              setState(() => controllers.difficulty = newDifficulty);
-            }, controllers.difficulty),
-            _buildTextField(controllers.questions, 'Number of Questions'),
-            _buildTextField(controllers.correct, 'Number Correct'),
-          ],
-        );
-      }).toList(),
-      TextButton.icon(
-          icon: const Icon(Icons.add),
-          label: const Text("Add RC Set"),
-          onPressed: _addRcSet),
-      const Divider(height: 40),
-      Text("Verbal Ability", style: Theme.of(context).textTheme.titleLarge),
-      _buildTextField(_vaAttemptedController, 'Number of VA Questions Done'),
-      _buildTextField(_vaCorrectController, 'VA Questions Correct'),
+      if (_rcSets.isNotEmpty || getInt(_vaAttemptedController) == 0)
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Reading Comprehension",
+                    style: Theme.of(context).textTheme.titleLarge),
+                ..._rcSets.asMap().entries.map((entry) {
+                  return _buildSetSubCard(
+                    index: entry.key,
+                    title: "RC Set ${entry.key + 1}",
+                    onRemove: () => _removeRcSet(entry.key),
+                    children: [
+                      _buildDifficultySelector(
+                          (d) =>
+                              setState(() => _rcSets[entry.key].difficulty = d),
+                          _rcSets[entry.key].difficulty),
+                      _buildTextField(
+                          _rcSets[entry.key].questions, 'Number of Questions'),
+                      _buildTextField(
+                          _rcSets[entry.key].correct, 'Number Correct'),
+                    ],
+                  );
+                }).toList(),
+                TextButton.icon(
+                    icon: const Icon(Icons.add),
+                    label: const Text("Add RC Set"),
+                    onPressed: _addRcSet),
+              ],
+            ),
+          ),
+        ),
+      const SizedBox(height: 16),
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("Verbal Ability",
+                  style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 8),
+              _buildTextField(_vaAttemptedController, 'Number Attempted'),
+              _buildTextField(_vaCorrectController, 'Number Correct'),
+              const SizedBox(height: 16),
+              Text("Topic", style: Theme.of(context).textTheme.titleMedium),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8.0,
+                runSpacing: 8.0,
+                children: _vaTopics.map((topic) {
+                  return ChoiceChip(
+                    label: Text(topic),
+                    selected: _selectedVaTopic == topic,
+                    onSelected: (isSelected) => setState(
+                        () => isSelected ? _selectedVaTopic = topic : null),
+                    // --- COLOR FIX: Removed custom colors to use default theme blue ---
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+        ),
+      ),
     ];
   }
 
   List<Widget> _buildLrdiForm() {
     return [
-      Text("LRDI Sets", style: Theme.of(context).textTheme.titleLarge),
-      ..._lrdiSets.asMap().entries.map((entry) {
-        int index = entry.key;
-        LrdiSetControllers controllers = entry.value;
-        return _buildSetCard(
-          index: index,
-          title: "LRDI Set ${index + 1}",
-          onRemove: () => _removeLrdiSet(index),
-          children: [
-            _buildDifficultySelector((newDifficulty) {
-              setState(() => controllers.difficulty = newDifficulty);
-            }, controllers.difficulty),
-            _buildTextField(controllers.questions, 'Number of Questions'),
-            _buildTextField(controllers.correct, 'Number Correct'),
-            StatefulBuilder(builder: (context, setCheckboxState) {
-              return CheckboxListTile(
-                title: const Text("Solved on your own?"),
-                value: controllers.isSolo,
-                onChanged: (val) =>
-                    setCheckboxState(() => controllers.isSolo = val!),
-                controlAffinity: ListTileControlAffinity.leading,
-                contentPadding: EdgeInsets.zero,
-              );
-            }),
-          ],
-        );
-      }).toList(),
-      TextButton.icon(
-          icon: const Icon(Icons.add),
-          label: const Text("Add LRDI Set"),
-          onPressed: _addLrdiSet),
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("LRDI Sets", style: Theme.of(context).textTheme.titleLarge),
+              ..._lrdiSets.asMap().entries.map((entry) {
+                return _buildSetSubCard(
+                  index: entry.key,
+                  title: "LRDI Set ${entry.key + 1}",
+                  onRemove: () => _removeLrdiSet(entry.key),
+                  children: [
+                    _buildDifficultySelector(
+                        (d) =>
+                            setState(() => _lrdiSets[entry.key].difficulty = d),
+                        _lrdiSets[entry.key].difficulty),
+                    _buildTextField(
+                        _lrdiSets[entry.key].questions, 'Number of Questions'),
+                    _buildTextField(
+                        _lrdiSets[entry.key].correct, 'Number Correct'),
+                    CheckboxListTile(
+                      title: const Text("Solved on your own?"),
+                      value: _lrdiSets[entry.key].isSolo,
+                      onChanged: (val) =>
+                          setState(() => _lrdiSets[entry.key].isSolo = val!),
+                      controlAffinity: ListTileControlAffinity.leading,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  ],
+                );
+              }).toList(),
+              TextButton.icon(
+                  icon: const Icon(Icons.add),
+                  label: const Text("Add LRDI Set"),
+                  onPressed: _addLrdiSet),
+            ],
+          ),
+        ),
+      ),
     ];
   }
 
   List<Widget> _buildQaForm() {
     return [
-      _buildTextField(_qaAttemptedController, 'Number of Questions Attempted'),
-      _buildTextField(_qaCorrectController, 'Number of Questions Correct'),
-      _buildTextField(
-        _qaTagsController,
-        'Topics (e.g. Algebra, Geometry)',
-        isNumeric: false,
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("Questions", style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 8),
+              _buildTextField(_qaAttemptedController, 'Number Attempted'),
+              _buildTextField(_qaCorrectController, 'Number Correct'),
+            ],
+          ),
+        ),
+      ),
+      const SizedBox(height: 16),
+      Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text("Topic", style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8.0,
+                runSpacing: 8.0,
+                children: _qaTopics.map((topic) {
+                  return ChoiceChip(
+                    label: Text(topic),
+                    selected: _selectedQaTopic == topic,
+                    onSelected: (isSelected) => setState(
+                        () => isSelected ? _selectedQaTopic = topic : null),
+                    // --- COLOR FIX: Removed custom colors to use default theme blue ---
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+        ),
       ),
     ];
   }
 
   List<Widget> _buildMiscForm() {
     return [
-      _buildTextField(_taskNameController, 'Task Name (e.g. Read Article)',
-          isNumeric: false),
+      Card(
+          child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: _buildTextField(
+                  _taskNameController, 'Task Name (e.g. Read Article)',
+                  isNumeric: false)))
     ];
   }
 
@@ -287,56 +403,59 @@ class _SessionFormState extends ConsumerState<SessionForm> {
     );
   }
 
-  Widget _buildSetCard(
+  Widget _buildSetSubCard(
       {required int index,
       required String title,
       required VoidCallback onRemove,
       required List<Widget> children}) {
-    return Card(
+    return Container(
       margin: const EdgeInsets.symmetric(vertical: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(title,
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(fontWeight: FontWeight.bold)),
-                if (index > 0)
-                  IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: onRemove,
-                      visualDensity: VisualDensity.compact),
-              ],
-            ),
-            const SizedBox(height: 8),
-            ...children,
-          ],
-        ),
+      padding: const EdgeInsets.all(16.0),
+      decoration: BoxDecoration(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          borderRadius: BorderRadius.circular(12)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(title,
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.bold)),
+              if (index > 0)
+                IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: onRemove,
+                    visualDensity: VisualDensity.compact),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ...children,
+        ],
       ),
     );
   }
 
+  // --- UI FIX: Upgraded to ChoiceChips for consistency ---
   Widget _buildDifficultySelector(
       Function(Difficulty) onSelectionChanged, Difficulty groupValue) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 8.0, bottom: 8.0),
-      child: SegmentedButton<Difficulty>(
-        segments: const [
-          ButtonSegment(value: Difficulty.easy, label: Text('Easy')),
-          ButtonSegment(value: Difficulty.medium, label: Text('Medium')),
-          ButtonSegment(value: Difficulty.hard, label: Text('Hard')),
-        ],
-        selected: {groupValue},
-        onSelectionChanged: (newSelection) {
-          onSelectionChanged(newSelection.first);
-        },
-      ),
+    return Wrap(
+      spacing: 8.0,
+      children: Difficulty.values.map((d) {
+        return ChoiceChip(
+          label: Text(d.name),
+          selected: groupValue == d,
+          onSelected: (isSelected) {
+            if (isSelected) {
+              onSelectionChanged(d);
+            }
+          },
+          // --- COLOR FIX: Removed custom colors to use default theme blue ---
+        );
+      }).toList(),
     );
   }
 
@@ -350,13 +469,12 @@ class _SessionFormState extends ConsumerState<SessionForm> {
         inputFormatters:
             isNumeric ? [FilteringTextInputFormatter.digitsOnly] : [],
         decoration: InputDecoration(
-          labelText: label,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        ),
+            labelText: label,
+            border:
+                OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
         validator: (value) {
-          if (isRequired && (value == null || value.isEmpty)) {
+          if (isRequired && (value == null || value.isEmpty))
             return 'Please enter a value';
-          }
           return null;
         },
       ),

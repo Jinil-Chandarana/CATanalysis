@@ -2,14 +2,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalyst_app/models/study_session.dart';
 import 'package:catalyst_app/persistence/hive_service.dart';
 
+// (The DailyActivity record is unchanged)
 typedef DailyActivity = ({
   Duration totalDuration,
   List<double> hourlyBreakdown,
   Map<Subject, Duration> sessionsBySubject,
 });
 
+// (The top part of the file is unchanged)
 final hiveServiceProvider = Provider<HiveService>((ref) => HiveService());
-
 final sessionProvider =
     StateNotifierProvider<SessionNotifier, List<StudySession>>((ref) {
   final hiveService = ref.watch(hiveServiceProvider);
@@ -18,11 +19,9 @@ final sessionProvider =
 
 class SessionNotifier extends StateNotifier<List<StudySession>> {
   final HiveService _hiveService;
-
   SessionNotifier(this._hiveService) : super([]) {
     loadSessions();
   }
-
   void loadSessions() {
     state = _hiveService.getAllSessions();
   }
@@ -42,21 +41,20 @@ final varcSessionsProvider = Provider<List<StudySession>>((ref) {
   final allSessions = ref.watch(sessionProvider);
   return allSessions.where((s) => s.subject == Subject.varc).toList();
 });
-
 final lrdiSessionsProvider = Provider<List<StudySession>>((ref) {
   final allSessions = ref.watch(sessionProvider);
   return allSessions.where((s) => s.subject == Subject.lrdi).toList();
 });
-
 final qaSessionsProvider = Provider<List<StudySession>>((ref) {
   final allSessions = ref.watch(sessionProvider);
   return allSessions.where((s) => s.subject == Subject.qa).toList();
 });
-
 final miscSessionsProvider = Provider<List<StudySession>>((ref) {
   final allSessions = ref.watch(sessionProvider);
   return allSessions.where((s) => s.subject == Subject.misc).toList();
 });
+
+// --- THIS SECTION IS UPDATED ---
 
 final todaysProgressProvider = Provider<Map<Subject, Duration>>((ref) {
   final allSessions = ref.watch(sessionProvider);
@@ -65,16 +63,13 @@ final todaysProgressProvider = Provider<Map<Subject, Duration>>((ref) {
       s.endTime.year == today.year &&
       s.endTime.month == today.month &&
       s.endTime.day == today.day);
-
   final progress = {
     Subject.varc: Duration.zero,
     Subject.lrdi: Duration.zero,
     Subject.qa: Duration.zero,
     Subject.misc: Duration.zero,
   };
-
   for (var session in todaysSessions) {
-    // --- FIX: Use focusDuration ---
     progress[session.subject] =
         (progress[session.subject] ?? Duration.zero) + session.focusDuration;
   }
@@ -85,16 +80,13 @@ final dailySummaryProvider =
     Provider<Map<DateTime, Map<Subject, Duration>>>((ref) {
   final allSessions = ref.watch(sessionProvider);
   final Map<DateTime, Map<Subject, Duration>> summary = {};
-
   for (var session in allSessions) {
     final day = DateTime(
         session.endTime.year, session.endTime.month, session.endTime.day);
-
     if (summary[day] == null) {
       summary[day] = {};
     }
     final currentDuration = summary[day]![session.subject] ?? Duration.zero;
-    // --- FIX: Use focusDuration ---
     summary[day]![session.subject] = currentDuration + session.focusDuration;
   }
   return summary;
@@ -109,7 +101,6 @@ final qaTagStatsProvider =
     Provider<Map<String, ({int correct, int total})>>((ref) {
   final qaSession = ref.watch(qaSessionsProvider);
   final Map<String, ({int correct, int total})> tagStats = {};
-
   for (final session in qaSession) {
     for (final tag in session.tags) {
       final currentCorrect = tagStats[tag]?.correct ?? 0;
@@ -123,14 +114,34 @@ final qaTagStatsProvider =
   return tagStats;
 });
 
+// --- NEW PROVIDER FOR VA TOPIC STATS ---
+final vaTagStatsProvider =
+    Provider<Map<String, ({int correct, int total})>>((ref) {
+  final varcSession = ref.watch(varcSessionsProvider);
+  final Map<String, ({int correct, int total})> tagStats = {};
+
+  // We only care about sessions that were specifically for VA
+  final vaSessions = varcSession.where((s) => s.vaTotalAttempted > 0);
+
+  for (final session in vaSessions) {
+    for (final tag in session.tags) {
+      final currentCorrect = tagStats[tag]?.correct ?? 0;
+      final currentTotal = tagStats[tag]?.total ?? 0;
+      tagStats[tag] = (
+        correct: currentCorrect + session.vaTotalCorrect,
+        total: currentTotal + session.vaTotalAttempted
+      );
+    }
+  }
+  return tagStats;
+});
+
 final miscTaskStatsProvider = Provider<Map<String, Duration>>((ref) {
   final miscSessions = ref.watch(miscSessionsProvider);
   final Map<String, Duration> taskStats = {};
-
   for (final session in miscSessions) {
     final taskName = session.taskName;
     if (taskName != null && taskName.isNotEmpty) {
-      // --- FIX: Use focusDuration ---
       taskStats[taskName] =
           (taskStats[taskName] ?? Duration.zero) + session.focusDuration;
     }
@@ -142,7 +153,6 @@ final activityHeatmapProvider = Provider<Map<int, List<StudySession>>>((ref) {
   final allSessions = ref.watch(sessionProvider);
   final recentSessions = allSessions.where((s) =>
       s.startTime.isAfter(DateTime.now().subtract(const Duration(days: 30))));
-
   final Map<int, List<StudySession>> groupedByDay = {};
   for (final session in recentSessions) {
     final dayKey = session.startTime.weekday;
@@ -158,44 +168,35 @@ final dailyActivityProvider =
     Provider.family<DailyActivity, DateTime>((ref, day) {
   final allSessions = ref.watch(sessionProvider);
   final targetDay = DateTime(day.year, day.month, day.day);
-
   final sessionsOnDay = allSessions.where((s) {
     final sessionDay =
         DateTime(s.startTime.year, s.startTime.month, s.startTime.day);
     return sessionDay.isAtSameMomentAs(targetDay);
   }).toList();
-
   final totalDuration = sessionsOnDay.fold(
-      Duration.zero,
-      (prev, session) =>
-          prev + session.focusDuration); // --- FIX: Use focusDuration
-
+      Duration.zero, (prev, session) => prev + session.focusDuration);
   final sessionsBySubject = <Subject, Duration>{};
   for (var session in sessionsOnDay) {
     sessionsBySubject[session.subject] =
         (sessionsBySubject[session.subject] ?? Duration.zero) +
-            session.focusDuration; // --- FIX: Use focusDuration
+            session.focusDuration;
   }
-
   final hourlyBreakdown = List.filled(24, 0.0);
   for (final session in sessionsOnDay) {
     for (int hour = 0; hour < 24; hour++) {
       final hourStart =
           DateTime(targetDay.year, targetDay.month, targetDay.day, hour);
       final hourEnd = hourStart.add(const Duration(hours: 1));
-
       final overlapStart =
           session.startTime.isAfter(hourStart) ? session.startTime : hourStart;
       final overlapEnd =
           session.endTime.isBefore(hourEnd) ? session.endTime : hourEnd;
-
       if (overlapStart.isBefore(overlapEnd)) {
         final overlapDuration = overlapEnd.difference(overlapStart);
         hourlyBreakdown[hour] += overlapDuration.inMinutes;
       }
     }
   }
-
   return (
     totalDuration: totalDuration,
     hourlyBreakdown: hourlyBreakdown,

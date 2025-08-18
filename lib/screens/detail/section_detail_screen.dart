@@ -4,7 +4,6 @@ import 'package:intl/intl.dart';
 import 'package:catalyst_app/models/study_session.dart';
 import 'package:catalyst_app/providers/session_provider.dart';
 import 'package:catalyst_app/theme/app_colors.dart';
-import 'widgets/focus_percentage_indicator.dart'; // Import new widget
 import 'widgets/performance_chart.dart';
 
 class SectionDetailScreen extends ConsumerWidget {
@@ -14,6 +13,7 @@ class SectionDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // This build method is correct and remains unchanged
     final sessionsProvider = switch (subject) {
       Subject.varc => varcSessionsProvider,
       Subject.lrdi => lrdiSessionsProvider,
@@ -36,6 +36,10 @@ class SectionDetailScreen extends ConsumerWidget {
           : ListView(
               padding: const EdgeInsets.all(16.0),
               children: [
+                if (subject == Subject.varc) ...[
+                  _buildVaTopicStats(context, ref),
+                  const SizedBox(height: 24),
+                ],
                 if (subject == Subject.qa) ...[
                   _buildQaTopicStats(context, ref),
                   const SizedBox(height: 24),
@@ -63,181 +67,322 @@ class SectionDetailScreen extends ConsumerWidget {
     );
   }
 
-  // ... (buildQaTopicStats and buildMiscTaskStats are unchanged, only copy the part below) ...
-
+  // --- WIDGET REDESIGNED with a clean Linear Progress Bar ---
   Widget _buildSessionCard(
       BuildContext context, StudySession session, WidgetRef ref) {
-    String formatDuration(Duration d) =>
-        '${d.inHours}h ${d.inMinutes.remainder(60)}m';
+    // Create a single list of all stat widgets for this session
+    final List<Widget> statRows = [
+      ..._getMetricsWidgets(session), // Subject-specific metrics
+    ];
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      margin: const EdgeInsets.only(bottom: 16),
+      elevation: 4,
+      shadowColor: Colors.black.withOpacity(0.08),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      clipBehavior:
+          Clip.antiAlias, // Important for the notes section background
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // --- HEADER: Date, Time, and Delete Button ---
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 8, 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(DateFormat.yMMMd().format(session.endTime),
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text(
+                        DateFormat.yMMMd().format(session.endTime),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
                       const SizedBox(height: 4),
                       Text(
-                          '${DateFormat.jm().format(session.startTime)} - ${DateFormat.jm().format(session.endTime)}',
-                          style: const TextStyle(color: Colors.black54)),
+                        '${DateFormat.jm().format(session.startTime)} - ${DateFormat.jm().format(session.endTime)}',
+                        style: TextStyle(
+                            color: Colors.grey.shade600, fontSize: 13),
+                      ),
                     ],
                   ),
                 ),
-                // --- NEW FOCUS INDICATOR ---
-                FocusPercentageIndicator(
-                  percentage: session.focusPercentage,
-                  color: AppColors.getSubjectColor(session.subject),
-                )
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.grey),
+                  onPressed: () => ref
+                      .read(sessionProvider.notifier)
+                      .deleteSession(session.id),
+                ),
               ],
             ),
-            const Divider(height: 20),
-            _buildMetricsDisplay(session),
-            // Display Focus and Seating Time
-            _buildMetricRow(
-                'Focus Time', formatDuration(session.focusDuration)),
-            _buildMetricRow(
-                'Seating Time', formatDuration(session.seatingDuration)),
-            if (session.notes != null && session.notes!.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(8),
+          ),
+
+          // --- DIVIDER: Cleanly separates header from data ---
+          const Divider(height: 1),
+
+          // --- STATS AND PROGRESS BAR SECTION ---
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // The list of text-based stats
+                ListView.separated(
+                  itemCount: statRows.length,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemBuilder: (context, index) => statRows[index],
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 10),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Notes / Analysis',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 4),
-                    Text(session.notes!),
-                  ],
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
+                const SizedBox(height: 16),
+                // The new, cool linear progress bar
+                _buildFocusIndicatorBar(session),
+              ],
+            ),
+          ),
 
-  Widget _buildMetricsDisplay(StudySession session) {
-    String formatAccuracy(double acc, int correct, int total) {
-      if (total == 0) return '0.0% (0/0)';
-      return '${(acc * 100).toStringAsFixed(1)}% ($correct/$total)';
-    }
-
-    // --- SPEED FORMAT FIX ---
-    String formatTime(double value, String unit) {
-      if (value <= 0) return '-';
-      // Convert seconds to minutes for display
-      final minutes = value / 60;
-      return '${minutes.toStringAsFixed(1)} $unit';
-    }
-
-    switch (session.subject) {
-      case Subject.varc:
-        return Column(
-          children: [
-            for (var set in (session.metrics['rc_sets'] as List))
-              _buildMetricRow(
-                  'RC Set (${Difficulty.values[set['difficulty'] ?? Difficulty.medium.index].name})',
-                  formatAccuracy(
-                      (set['questions'] ?? 0) > 0
-                          ? (set['correct'] as int) / (set['questions'] as int)
-                          : 0.0,
-                      set['correct'],
-                      set['questions'])),
-            if (session.vaTotalAttempted > 0)
-              _buildMetricRow(
-                  'VA Accuracy',
-                  formatAccuracy(session.vaAccuracy, session.vaTotalCorrect,
-                      session.vaTotalAttempted)),
-          ],
-        );
-      case Subject.lrdi:
-        return Column(
-          children: [
-            for (var set in (session.metrics['lrdi_sets'] as List))
-              _buildMetricRow(
-                  'LRDI Set (${Difficulty.values[set['difficulty'] ?? Difficulty.medium.index].name})',
-                  formatAccuracy(
-                      (set['questions'] ?? 0) > 0
-                          ? (set['correct'] as int) / (set['questions'] as int)
-                          : 0.0,
-                      set['correct'],
-                      set['questions'])),
-            // This already used minutes, so no change needed
-            _buildMetricRow('Pacing',
-                '${session.lrdiTimePerSet.toStringAsFixed(1)} min/set'),
-          ],
-        );
-      case Subject.qa:
-        return Column(
-          children: [
-            _buildMetricRow(
-                'Accuracy',
-                formatAccuracy(session.qaAccuracy, session.qaTotalCorrect,
-                    session.qaTotalAttempted)),
-            _buildMetricRow(
-                'Speed', formatTime(session.qaTimePerQuestion, 'min/ques')),
-            if (session.tags.isNotEmpty)
-              _buildMetricRow('Topics', session.tags.join(', ')),
-          ],
-        );
-      case Subject.misc:
-        return _buildMetricRow('Task', session.taskName ?? 'N/A');
-    }
-  }
-
-  Widget _buildMetricRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: TextStyle(color: Colors.grey.shade600)),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
+          // --- NOTES SECTION (if available) ---
+          if (session.notes != null && session.notes!.isNotEmpty)
+            _buildNotesSection(session),
         ],
       ),
     );
   }
 
-  // (buildQaTopicStats and buildMiscTaskStats are unchanged, no need to copy them if they already exist)
-  Widget _buildQaTopicStats(BuildContext context, WidgetRef ref) {
-    final tagStats = ref.watch(qaTagStatsProvider);
-    if (tagStats.isEmpty) {
-      return const SizedBox.shrink();
+  // --- NEW WIDGET: The Linear Progress Indicator Bar ---
+  Widget _buildFocusIndicatorBar(StudySession session) {
+    final subjectColor = AppColors.getSubjectColor(session.subject);
+    String formatDuration(Duration d) =>
+        '${d.inHours}h ${d.inMinutes.remainder(60)}m';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Title for the bar
+        Text(
+          'Focus Efficiency',
+          style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: Colors.grey.shade600),
+        ),
+        const SizedBox(height: 8),
+        // The bar itself, built with a Stack and Containers
+        Stack(
+          children: [
+            // The background of the bar
+            Container(
+              height: 10,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade200,
+                borderRadius: BorderRadius.circular(5),
+              ),
+            ),
+            // The foreground (progress) of the bar
+            LayoutBuilder(
+              builder: (context, constraints) => Container(
+                height: 10,
+                width: constraints.maxWidth * session.focusPercentage,
+                decoration: BoxDecoration(
+                  color: subjectColor,
+                  borderRadius: BorderRadius.circular(5),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        // Labels below the bar
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Focus: ${formatDuration(session.focusDuration)}',
+              style: TextStyle(
+                  fontSize: 12,
+                  color: subjectColor,
+                  fontWeight: FontWeight.bold),
+            ),
+            Text(
+              'Total: ${formatDuration(session.seatingDuration)}',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // --- HELPER: The simple, clean "bill-style" row ---
+  Widget _buildMetricRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Flexible(
+          child: Text(
+            label,
+            style: TextStyle(color: Colors.grey.shade700, fontSize: 14),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        Text(
+          value,
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+        ),
+      ],
+    );
+  }
+
+  // --- HELPER: A dedicated, styled notes section ---
+  Widget _buildNotesSection(StudySession session) {
+    return Container(
+      width: double.infinity,
+      color: Colors.grey.shade50,
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Notes / Analysis',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Colors.grey.shade800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            session.notes!,
+            style: TextStyle(color: Colors.grey.shade700, height: 1.4),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- HELPER: Gathers all subject-specific metric widgets ---
+  List<Widget> _getMetricsWidgets(StudySession session) {
+    String formatAccuracy(double acc, int correct, int total) {
+      if (total == 0) return '0.0% ($correct/$total)';
+      return '${(acc * 100).toStringAsFixed(1)}% ($correct/$total)';
     }
+
+    String formatTime(double value, String unit) {
+      if (value <= 0) return '-';
+      final minutes = value / 60;
+      return '${minutes.toStringAsFixed(1)} $unit';
+    }
+
+    List<Widget> metrics = [];
+    switch (session.subject) {
+      case Subject.varc:
+        for (var set in (session.metrics['rc_sets'] as List)) {
+          metrics.add(_buildMetricRow(
+            'RC Set (${Difficulty.values[set['difficulty'] ?? Difficulty.medium.index].name})',
+            formatAccuracy(
+                (set['questions'] ?? 0) > 0
+                    ? (set['correct'] as int) / (set['questions'] as int)
+                    : 0.0,
+                set['correct'],
+                set['questions']),
+          ));
+        }
+        if (session.vaTotalAttempted > 0) {
+          metrics.add(_buildMetricRow(
+              'VA: ${session.tags.isNotEmpty ? session.tags.first : ""}',
+              formatAccuracy(session.vaAccuracy, session.vaTotalCorrect,
+                  session.vaTotalAttempted)));
+        }
+        break;
+      case Subject.lrdi:
+        for (var set in (session.metrics['lrdi_sets'] as List)) {
+          metrics.add(_buildMetricRow(
+            'LRDI Set (${Difficulty.values[set['difficulty'] ?? Difficulty.medium.index].name})',
+            formatAccuracy(
+                (set['questions'] ?? 0) > 0
+                    ? (set['correct'] as int) / (set['questions'] as int)
+                    : 0.0,
+                set['correct'],
+                set['questions']),
+          ));
+        }
+        metrics.add(_buildMetricRow(
+            'Pacing', '${session.lrdiTimePerSet.toStringAsFixed(1)} min/set'));
+        break;
+      case Subject.qa:
+        metrics.add(_buildMetricRow(
+            'Accuracy',
+            formatAccuracy(session.qaAccuracy, session.qaTotalCorrect,
+                session.qaTotalAttempted)));
+        metrics.add(_buildMetricRow(
+            'Speed', formatTime(session.qaTimePerQuestion, 'min/ques')));
+        if (session.tags.isNotEmpty) {
+          metrics.add(_buildMetricRow('Topic', session.tags.join(', ')));
+        }
+        break;
+      case Subject.misc:
+        metrics.add(_buildMetricRow('Task', session.taskName ?? 'N/A'));
+        break;
+    }
+    return metrics;
+  }
+
+  // --- UNCHANGED WIDGETS BELOW ---
+  Widget _buildVaTopicStats(BuildContext context, WidgetRef ref) {
+    final tagStats = ref.watch(vaTagStatsProvider);
+    if (tagStats.isEmpty) return const SizedBox.shrink();
     final sortedTags = tagStats.entries.toList()
       ..sort((a, b) => b.value.total.compareTo(a.value.total));
-
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Performance by Topic',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.bold),
-            ),
+            Text('Performance by VA Topic',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            for (var entry in sortedTags)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(entry.key),
+                    Text(
+                      '${(entry.value.correct / entry.value.total * 100).toStringAsFixed(1)}% (${entry.value.correct}/${entry.value.total})',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQaTopicStats(BuildContext context, WidgetRef ref) {
+    final tagStats = ref.watch(qaTagStatsProvider);
+    if (tagStats.isEmpty) return const SizedBox.shrink();
+    final sortedTags = tagStats.entries.toList()
+      ..sort((a, b) => b.value.total.compareTo(a.value.total));
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Performance by QA Topic',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             for (var entry in sortedTags)
               Padding(
@@ -261,28 +406,22 @@ class SectionDetailScreen extends ConsumerWidget {
 
   Widget _buildMiscTaskStats(BuildContext context, WidgetRef ref) {
     final taskStats = ref.watch(miscTaskStatsProvider);
-    if (taskStats.isEmpty) {
-      return const SizedBox.shrink();
-    }
+    if (taskStats.isEmpty) return const SizedBox.shrink();
     final sortedTasks = taskStats.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
-
     String formatDuration(Duration d) =>
         '${d.inHours}h ${d.inMinutes.remainder(60)}m';
-
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Time Spent per Task',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.bold),
-            ),
+            Text('Time Spent per Task',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             for (var entry in sortedTasks)
               Padding(
@@ -291,10 +430,8 @@ class SectionDetailScreen extends ConsumerWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(entry.key),
-                    Text(
-                      formatDuration(entry.value),
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
+                    Text(formatDuration(entry.value),
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
                   ],
                 ),
               ),
