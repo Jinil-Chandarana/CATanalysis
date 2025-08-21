@@ -1,6 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart'; // <-- NEW: Import for date formatting
+import 'package:intl/intl.dart';
 import 'package:catalyst_app/models/study_session.dart';
 import 'package:catalyst_app/theme/app_colors.dart';
 
@@ -114,7 +114,6 @@ class PerformanceChart extends StatelessWidget {
         .entries
         .map((e) => FlSpot(e.key.toDouble(), e.value.rcAccuracy * 100))
         .toList();
-    // Pass the relevant sessions to the chart builder
     return _createLineChart(spots, AppColors.getSubjectColor(Subject.varc),
         relevantSessions.reversed.toList());
   }
@@ -160,7 +159,6 @@ class PerformanceChart extends StatelessWidget {
         relevantSessions.reversed.toList());
   }
 
-  // --- THIS METHOD IS UPDATED ---
   LineChart _createLineChart(
       List<FlSpot> spots, Color color, List<StudySession> sessionsForTooltip) {
     if (spots.isEmpty) {
@@ -173,15 +171,10 @@ class PerformanceChart extends StatelessWidget {
         lineTouchData: LineTouchData(
           touchTooltipData: LineTouchTooltipData(
             getTooltipColor: (spot) => AppColors.accent,
-            // --- LOGIC FIX: The tooltip builder now adds the date ---
             getTooltipItems: (touchedSpots) {
               return touchedSpots.map((spot) {
-                // Get the session that corresponds to this spot on the graph
                 final session = sessionsForTooltip[spot.spotIndex];
-                final date =
-                    DateFormat.MMMd().format(session.endTime); // "Aug 21"
-
-                // Create a multi-line tooltip
+                final date = DateFormat.MMMd().format(session.endTime);
                 return LineTooltipItem(
                   '${spot.y.toStringAsFixed(1)}%\n',
                   const TextStyle(
@@ -214,7 +207,8 @@ class PerformanceChart extends StatelessWidget {
         lineBarsData: [
           LineChartBarData(
             spots: spots,
-            isCurved: false,
+            // --- THIS IS THE FIX: Changed from false back to true to restore the curves ---
+            isCurved: true,
             color: color,
             barWidth: 3,
             isStrokeCapRound: true,
