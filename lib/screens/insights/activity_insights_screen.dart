@@ -3,12 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalyst_app/providers/session_provider.dart';
 import 'package:catalyst_app/screens/insights/widgets/activity_heatmap.dart';
 import 'package:catalyst_app/screens/insights/widgets/day_selector.dart';
-import 'package:catalyst_app/screens/insights/widgets/hourly_activity_chart.dart';
+import 'package:catalyst_app/screens/insights/widgets/daily_session_chart.dart'; // UPDATED import
 import 'package:catalyst_app/screens/insights/widgets/session_breakdown_list.dart';
 
 class ActivityInsightsScreen extends StatefulWidget {
   const ActivityInsightsScreen({super.key});
-
   @override
   State<ActivityInsightsScreen> createState() => _ActivityInsightsScreenState();
 }
@@ -16,7 +15,6 @@ class ActivityInsightsScreen extends StatefulWidget {
 class _ActivityInsightsScreenState extends State<ActivityInsightsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-
   @override
   void initState() {
     super.initState();
@@ -44,10 +42,9 @@ class _ActivityInsightsScreenState extends State<ActivityInsightsScreen>
       ),
       body: TabBarView(
         controller: _tabController,
-        children: const [
-          _DailyActivityView(),
-          // --- FIX: Reduced padding for a wider, more modern look ---
-          Padding(
+        children: [
+          const _DailyActivityView(),
+          const Padding(
             padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 16.0),
             child: ActivityHeatmap(),
           ),
@@ -57,18 +54,14 @@ class _ActivityInsightsScreenState extends State<ActivityInsightsScreen>
   }
 }
 
-// ... (Rest of the file is unchanged, only the part above was modified)
-
 class _DailyActivityView extends ConsumerStatefulWidget {
   const _DailyActivityView();
-
   @override
   ConsumerState<_DailyActivityView> createState() => __DailyActivityViewState();
 }
 
 class __DailyActivityViewState extends ConsumerState<_DailyActivityView> {
   late DateTime _selectedDay;
-
   @override
   void initState() {
     super.initState();
@@ -85,7 +78,6 @@ class __DailyActivityViewState extends ConsumerState<_DailyActivityView> {
   @override
   Widget build(BuildContext context) {
     final dailyData = ref.watch(dailyActivityProvider(_selectedDay));
-
     return ListView(
       padding: const EdgeInsets.all(16.0),
       children: [
@@ -111,12 +103,16 @@ class __DailyActivityViewState extends ConsumerState<_DailyActivityView> {
                       ?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  "Total study time for the selected day.",
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
+                Text("Total study time for the selected day.",
+                    style: Theme.of(context).textTheme.bodySmall),
                 const SizedBox(height: 16),
-                HourlyActivityChart(hourlyData: dailyData.hourlyBreakdown),
+                // --- THIS IS THE FIX: Use the new chart and pass the sessions ---
+                if (dailyData.sessionsOnDay.isNotEmpty)
+                  DailySessionChart(sessions: dailyData.sessionsOnDay)
+                else
+                  const SizedBox(
+                      height: 150,
+                      child: Center(child: Text("No activity to display."))),
               ],
             ),
           ),

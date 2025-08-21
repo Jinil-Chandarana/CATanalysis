@@ -2,11 +2,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:catalyst_app/models/study_session.dart';
 import 'package:catalyst_app/persistence/hive_service.dart';
 
-// (The DailyActivity record is unchanged)
+// --- UPDATED: The record is now simpler, just passing the raw session data ---
 typedef DailyActivity = ({
   Duration totalDuration,
-  List<double> hourlyBreakdown,
   Map<Subject, Duration> sessionsBySubject,
+  List<StudySession> sessionsOnDay,
 });
 
 // (The top part of the file is unchanged)
@@ -107,20 +107,15 @@ final qaTagStatsProvider =
   }
   return tagStats;
 });
-
-// --- THIS PROVIDER IS UPDATED ---
 final vaTagStatsProvider =
     Provider<Map<String, ({int correct, int total})>>((ref) {
   final varcSessions = ref.watch(varcSessionsProvider);
   final Map<String, ({int correct, int total})> tagStats = {};
-
   for (final session in varcSessions) {
-    // Loop through each VA set logged in the session
     for (final vaSet in session.vaSets) {
       final String tag = vaSet['topic'] ?? 'Unknown';
       final int correct = vaSet['correct'] ?? 0;
       final int attempted = vaSet['attempted'] ?? 0;
-
       final currentStats = tagStats[tag] ?? (correct: 0, total: 0);
       tagStats[tag] = (
         correct: currentStats.correct + correct,
@@ -130,8 +125,6 @@ final vaTagStatsProvider =
   }
   return tagStats;
 });
-
-// (Rest of the file is unchanged)
 final miscTaskStatsProvider = Provider<Map<String, Duration>>((ref) {
   final miscSessions = ref.watch(miscSessionsProvider);
   final Map<String, Duration> taskStats = {};
@@ -158,42 +151,32 @@ final activityHeatmapProvider = Provider<Map<int, List<StudySession>>>((ref) {
   }
   return groupedByDay;
 });
+
+// --- THIS PROVIDER IS UPDATED AND SIMPLIFIED ---
 final dailyActivityProvider =
     Provider.family<DailyActivity, DateTime>((ref, day) {
   final allSessions = ref.watch(sessionProvider);
   final targetDay = DateTime(day.year, day.month, day.day);
+
   final sessionsOnDay = allSessions.where((s) {
     final sessionDay =
         DateTime(s.startTime.year, s.startTime.month, s.startTime.day);
     return sessionDay.isAtSameMomentAs(targetDay);
   }).toList();
+
   final totalDuration = sessionsOnDay.fold(
       Duration.zero, (prev, session) => prev + session.focusDuration);
+
   final sessionsBySubject = <Subject, Duration>{};
   for (var session in sessionsOnDay) {
     sessionsBySubject[session.subject] =
         (sessionsBySubject[session.subject] ?? Duration.zero) +
             session.focusDuration;
   }
-  final hourlyBreakdown = List.filled(24, 0.0);
-  for (final session in sessionsOnDay) {
-    for (int hour = 0; hour < 24; hour++) {
-      final hourStart =
-          DateTime(targetDay.year, targetDay.month, targetDay.day, hour);
-      final hourEnd = hourStart.add(const Duration(hours: 1));
-      final overlapStart =
-          session.startTime.isAfter(hourStart) ? session.startTime : hourStart;
-      final overlapEnd =
-          session.endTime.isBefore(hourEnd) ? session.endTime : hourEnd;
-      if (overlapStart.isBefore(overlapEnd)) {
-        final overlapDuration = overlapEnd.difference(overlapStart);
-        hourlyBreakdown[hour] += overlapDuration.inMinutes;
-      }
-    }
-  }
+
   return (
     totalDuration: totalDuration,
-    hourlyBreakdown: hourlyBreakdown,
-    sessionsBySubject: sessionsBySubject
+    sessionsBySubject: sessionsBySubject,
+    sessionsOnDay: sessionsOnDay,
   );
 });
